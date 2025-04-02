@@ -42,7 +42,7 @@ app.post("/register", async (req, res) => {
             return res.status(400).json({ success: false, message: "All fields are required" });
         }
 
-        // Hash password before storing
+
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const pool = await poolPromise;
