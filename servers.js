@@ -110,3 +110,17 @@ app.post("/signin", async (req, res) => {
         });
     }
 });
+
+// Lista e punetorve API (Staf, Admin)
+
+app.get('/users', async (req, res) => {
+    try {
+        const pool = await poolPromise;
+        const result = await pool.request().query("Select * from users where role IN ('staff', 'admin')");
+        res.json(result.recordset);
+    } catch (error) {
+        res.status(500).json({
+            error: error.message
+        })
+    }
+})
