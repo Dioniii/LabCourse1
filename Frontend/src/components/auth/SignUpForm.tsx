@@ -43,8 +43,8 @@ export default function SignUpForm() {
 
       alert("Registration successful!");
       
-      // Redirect to a different page after successful registration
-      navigate("/login");  // Change the path to wherever you want to redirect the user
+    
+      navigate("/signin");  
     } catch (err) {
       console.error("Error:", err);
       if (err instanceof Error) {
@@ -199,12 +199,7 @@ export default function SignUpForm() {
                   {loading ? "Registering..." : "Sign Up"}
                 </button>
               </form>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-5">
+              <div className="mt-5">
         <p className="text-sm font-normal text-center text-gray-700 dark:text-gray-400 sm:text-start">
           Already have an account?{" "}
           <Link
@@ -214,6 +209,10 @@ export default function SignUpForm() {
             Sign In
           </Link>
         </p>
+      </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

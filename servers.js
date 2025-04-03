@@ -63,3 +63,50 @@ app.post("/register", async (req, res) => {
         });
     }
 });
+
+//sign in api
+
+app.post("/signin", async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false, message: "All fields are required"
+            });
+        }
+
+        const pool = await poolPromise; 
+        const result = await pool.request()
+            .input("email", sql.VarChar, email)
+            .query("SELECT * FROM HotelManagement.dbo.users WHERE email = @email");
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({
+                success: false, message: "User doesn't exist"
+            });
+        }
+
+        const user = result.recordset[0];
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({
+                success: false, message: "Password is incorrect"
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "User authenticated successfully",
+            user: {
+                id: user.id,
+                email: user.email
+            }
+        });
+
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message
+        });
+    }
+});
