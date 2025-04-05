@@ -13,10 +13,9 @@ app.use(cors());
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => console.log(`SERVER IS RUNNING ON ${PORT}`));
 
-// JWT secret key
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// Middleware to verify JWT
+// JWT Middleware
 const authenticateJWT = (req, res, next) => {
   const token = req.header('Authorization')?.replace('Bearer ', '');
   if (!token) {
@@ -52,7 +51,6 @@ app.post("/register", async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
     const pool = await poolPromise;
     await pool.request()
       .input("first_name", sql.VarChar, first_name)
@@ -92,12 +90,11 @@ app.post("/signin", async (req, res) => {
       return res.status(400).json({ success: false, message: "Password is incorrect" });
     }
 
-    // JWT TOKEN
     const token = jwt.sign(
       {
         id: user.id,
-        first_name: user.first_name, 
-        last_name: user.last_name,   
+        first_name: user.first_name,
+        last_name: user.last_name,
         email: user.email,
       },
       JWT_SECRET,
@@ -107,7 +104,7 @@ app.post("/signin", async (req, res) => {
     res.status(200).json({
       success: true,
       message: "User authenticated successfully",
-      token, 
+      token,
       user: {
         id: user.id,
         email: user.email
@@ -119,34 +116,35 @@ app.post("/signin", async (req, res) => {
   }
 });
 
-// JWT Middleware
-const authenticateToken = (req, res, next) => {
-  const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
+// UPDATE USER ROLE (admin only)
+app.put("/users/:id/role", authenticateJWT, async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+  const validRoles = ['admin', 'staff', 'guest'];
 
-  if (!token) {
-    return res.status(400).json({ success: false, message: "No token provided" });
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ success: false, message: "Invalid role" });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(401).json({ success: false, message: "Invalid or expired token" });
+  try {
+    const pool = await poolPromise;
+
+    // Kontrollo nëse përdoruesi është admin
+    const result = await pool.request()
+      .input("id", sql.Int, req.user.id)
+      .query("SELECT role FROM HotelManagement.dbo.users WHERE id = @id");
+
+    const currentUserRole = result.recordset[0]?.role;
+    if (currentUserRole !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admin can change roles" });
     }
 
-    req.user = decoded;
-    next(); 
-  });
-};
-
-// Route to get the current user's info
-app.get('/current-user', authenticateToken, (req, res) => {
-  const { first_name, last_name } = req.user; 
-
-  res.status(200).json({
-    success: true,
-    message: "User info retrieved successfully",
-    user: {
-      first_name,
-      last_name
-    }
-  });
+    await pool.request()
+      .input("id", sql.Int, id)
+      .input("role", sql.VarChar, role)
+      .query("UPDATE HotelManagement.dbo.users SET role = @role WHERE id = @id");
+    res.status(200).json({ success: true, message: "User role updated successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
 });

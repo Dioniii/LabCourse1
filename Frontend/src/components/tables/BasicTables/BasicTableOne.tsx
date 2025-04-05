@@ -36,6 +36,7 @@ export default function BasicTableOne() {
   const [users, setUsers] = useState<User[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [newRole, setNewRole] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
 
   const fetchUsers = () => {
     const token = localStorage.getItem("jwtToken");
@@ -75,15 +76,29 @@ export default function BasicTableOne() {
   };
 
   const handleSave = (id: number) => {
-    axios.put(`http://localhost:8000/users/${id}/role`, { role: newRole })
-      .then(() => {
-        setUsers(prev => prev.map(user =>
-          user.id === id ? { ...user, role: newRole as User["role"] } : user
-        ));
-        setEditingUserId(null);
-      })
-      .catch(err => console.error("Error updating role:", err));
+    const token = localStorage.getItem("jwtToken");
+
+    axios.put(
+      `http://localhost:8000/users/${id}/role`,
+      { role: newRole },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    )
+    .then(() => {
+      setUsers(prev => prev.map(user =>
+        user.id === id ? { ...user, role: newRole as User["role"] } : user
+      ));
+      setEditingUserId(null);
+    })
+    .catch(err => console.error("Error updating role:", err));
   };
+
+  const filteredUsers = users.filter((user) =>
+    `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
@@ -91,6 +106,8 @@ export default function BasicTableOne() {
         <Input
           placeholder="Kërko përdorues..."
           className="w-1/3"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
 
@@ -107,7 +124,7 @@ export default function BasicTableOne() {
           </TableHeader>
 
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {users.map((user) => (
+            {filteredUsers.map((user) => (
               <TableRow key={user.id}>
                 <TableCell className="px-5 py-4 text-start">{user.id}</TableCell>
                 <TableCell className="px-5 py-4 text-start">{user.firstName}</TableCell>
