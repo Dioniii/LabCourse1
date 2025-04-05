@@ -28,8 +28,12 @@ export default function SignInForm() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
       
+      // Save JWT token to localStorage
+      const token = data.token; // Assuming token is in the response object
+      localStorage.setItem("jwtToken", token); // Store the token
+
       // Redirect to dashboard or home page after successful login
-      navigate("/");
+      navigate("/"); 
     } catch (err) {
       setError((err as Error).message);
     }
@@ -80,13 +84,12 @@ export default function SignInForm() {
                 <div className="flex items-center gap-3">
                   {/* 
                   <Checkbox checked={isChecked} onChange={setIsChecked} />
-                  
                   <span className="block font-normal text-gray-700 text-theme-sm dark:text-gray-400">
                     Keep me logged in
                   </span>
-                  */} 
+                  */}
                 </div>
-                {/*
+                {/* 
                 <Link
                   to="/reset-password"
                   className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"

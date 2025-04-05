@@ -36,10 +36,18 @@ export default function BasicTableOne() {
   const [users, setUsers] = useState<User[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [newRole, setNewRole] = useState<string>("");
-  const [search, setSearch] = useState<string>("");
 
   const fetchUsers = () => {
-    axios.get("http://localhost:8000/users")
+    const token = localStorage.getItem("jwtToken");
+
+    if (!token) {
+      console.error("No JWT token found. Please log in.");
+    } else {
+      axios.get("http://localhost:8000/users", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
       .then(res => {
         if (res.data.success) {
           const formattedUsers: User[] = (res.data.data as RawUser[]).map((user) => ({
@@ -54,6 +62,7 @@ export default function BasicTableOne() {
         }
       })
       .catch(err => console.error("Error fetching users:", err));
+    }
   };
 
   useEffect(() => {
@@ -81,8 +90,6 @@ export default function BasicTableOne() {
       <div className="p-4">
         <Input
           placeholder="Kërko përdorues..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
           className="w-1/3"
         />
       </div>
@@ -100,40 +107,35 @@ export default function BasicTableOne() {
           </TableHeader>
 
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {users
-              .filter(user =>
-                user.firstName.toLowerCase().includes(search.toLowerCase()) ||
-                user.lastName.toLowerCase().includes(search.toLowerCase())
-              )
-              .map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="px-5 py-4 text-start">{user.id}</TableCell>
-                  <TableCell className="px-5 py-4 text-start">{user.firstName}</TableCell>
-                  <TableCell className="px-5 py-4 text-start">{user.lastName}</TableCell>
-                  <TableCell className="px-5 py-4 text-start">
-                    {editingUserId === user.id ? (
-                      <select
-                        className="border px-2 py-1 rounded"
-                        value={newRole}
-                        onChange={(e) => setNewRole(e.target.value)}
-                      >
-                        <option value="admin">admin</option>
-                        <option value="staff">staff</option>
-                        <option value="guest">guest</option>
-                      </select>
-                    ) : (
-                      user.role
-                    )}
-                  </TableCell>
-                  <TableCell className="px-5 py-4 text-start">
-                    {editingUserId === user.id ? (
-                      <Button onClick={() => handleSave(user.id)}>Save</Button>
-                    ) : (
-                      <Button onClick={() => handleEdit(user.id, user.role)}>Edit</Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+            {users.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell className="px-5 py-4 text-start">{user.id}</TableCell>
+                <TableCell className="px-5 py-4 text-start">{user.firstName}</TableCell>
+                <TableCell className="px-5 py-4 text-start">{user.lastName}</TableCell>
+                <TableCell className="px-5 py-4 text-start">
+                  {editingUserId === user.id ? (
+                    <select
+                      className="border px-2 py-1 rounded"
+                      value={newRole}
+                      onChange={(e) => setNewRole(e.target.value)}
+                    >
+                      <option value="admin">admin</option>
+                      <option value="staff">staff</option>
+                      <option value="guest">guest</option>
+                    </select>
+                  ) : (
+                    user.role
+                  )}
+                </TableCell>
+                <TableCell className="px-5 py-4 text-start">
+                  {editingUserId === user.id ? (
+                    <Button onClick={() => handleSave(user.id)}>Save</Button>
+                  ) : (
+                    <Button onClick={() => handleEdit(user.id, user.role)}>Edit</Button>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </div>

@@ -32,8 +32,8 @@ const authenticateJWT = (req, res, next) => {
   });
 };
 
-// GET all users 
-app.get('/users', async (req, res) => {
+// GET all users
+app.get('/users', authenticateJWT, async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query("SELECT * FROM HotelManagement.dbo.users");
@@ -42,7 +42,6 @@ app.get('/users', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
 
 // REGISTER user
 app.post("/register", async (req, res) => {
@@ -93,7 +92,7 @@ app.post("/signin", async (req, res) => {
       return res.status(400).json({ success: false, message: "Password is incorrect" });
     }
 
-    // JWT TOKEN RUHET ME KETO T DHENA
+    // JWT TOKEN
     const token = jwt.sign(
       {
         id: user.id,
@@ -120,40 +119,7 @@ app.post("/signin", async (req, res) => {
   }
 });
 
-
-// UPDATE role
-app.put('/users/:id/role', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { role } = req.body;
-
-    if (!['admin', 'staff', 'guest'].includes(role)) {
-      return res.status(400).json({ message: 'Invalid role' });
-    }
-
-    const pool = await poolPromise;
-    const checkUser = await pool.request()
-      .input('id', sql.Int, id)
-      .query('SELECT * FROM HotelManagement.dbo.users WHERE id = @id');
-
-    if (checkUser.recordset.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    await pool.request()
-      .input('role', sql.VarChar, role)
-      .input('id', sql.Int, id)
-      .query('UPDATE HotelManagement.dbo.users SET role = @role WHERE id = @id');
-
-    res.json({ message: 'Role updated successfully' });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-// JWT MIDDLEWARE
+// JWT Middleware
 const authenticateToken = (req, res, next) => {
   const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
 
@@ -166,13 +132,12 @@ const authenticateToken = (req, res, next) => {
       return res.status(401).json({ success: false, message: "Invalid or expired token" });
     }
 
-
     req.user = decoded;
     next(); 
   });
 };
 
-// route to get the current user's info
+// Route to get the current user's info
 app.get('/current-user', authenticateToken, (req, res) => {
   const { first_name, last_name } = req.user; 
 
