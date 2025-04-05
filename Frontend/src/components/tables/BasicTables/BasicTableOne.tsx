@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+import axios from "axios";
 import {
   Table,
   TableBody,
@@ -6,214 +8,132 @@ import {
   TableRow,
 } from "../../ui/table";
 
-import Badge from "../../ui/badge/Badge";
+const Button = ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+  <button className="bg-blue-600 text-white px-4 py-2 rounded" {...props}>
+    {children}
+  </button>
+);
 
-interface Order {
+const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
+  <input className="border px-2 py-1 rounded w-full" {...props} />
+);
+
+interface User {
   id: number;
-  user: {
-    image: string;
-    name: string;
-    role: string;
-  };
-  projectName: string;
-  team: {
-    images: string[];
-  };
-  status: string;
-  budget: string;
+  firstName: string;
+  lastName: string;
+  role: "admin" | "staff" | "guest";
 }
 
-// Define the table data using the interface
-const tableData: Order[] = [
-  {
-    id: 1,
-    user: {
-      image: "/images/user/user-17.jpg",
-      name: "Lindsey Curtis",
-      role: "Web Designer",
-    },
-    projectName: "Agency Website",
-    team: {
-      images: [
-        "/images/user/user-22.jpg",
-        "/images/user/user-23.jpg",
-        "/images/user/user-24.jpg",
-      ],
-    },
-    budget: "3.9K",
-    status: "Active",
-  },
-  {
-    id: 2,
-    user: {
-      image: "/images/user/user-18.jpg",
-      name: "Kaiya George",
-      role: "Project Manager",
-    },
-    projectName: "Technology",
-    team: {
-      images: ["/images/user/user-25.jpg", "/images/user/user-26.jpg"],
-    },
-    budget: "24.9K",
-    status: "Pending",
-  },
-  {
-    id: 3,
-    user: {
-      image: "/images/user/user-17.jpg",
-      name: "Zain Geidt",
-      role: "Content Writing",
-    },
-    projectName: "Blog Writing",
-    team: {
-      images: ["/images/user/user-27.jpg"],
-    },
-    budget: "12.7K",
-    status: "Active",
-  },
-  {
-    id: 4,
-    user: {
-      image: "/images/user/user-20.jpg",
-      name: "Abram Schleifer",
-      role: "Digital Marketer",
-    },
-    projectName: "Social Media",
-    team: {
-      images: [
-        "/images/user/user-28.jpg",
-        "/images/user/user-29.jpg",
-        "/images/user/user-30.jpg",
-      ],
-    },
-    budget: "2.8K",
-    status: "Cancel",
-  },
-  {
-    id: 5,
-    user: {
-      image: "/images/user/user-21.jpg",
-      name: "Carla George",
-      role: "Front-end Developer",
-    },
-    projectName: "Website",
-    team: {
-      images: [
-        "/images/user/user-31.jpg",
-        "/images/user/user-32.jpg",
-        "/images/user/user-33.jpg",
-      ],
-    },
-    budget: "4.5K",
-    status: "Active",
-  },
-];
+interface RawUser {
+  id: number;
+  first_name: string;
+  last_name: string;
+  role: "admin" | "staff" | "guest";
+}
 
 export default function BasicTableOne() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [newRole, setNewRole] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+
+  const fetchUsers = () => {
+    axios.get("http://localhost:8000/users")
+      .then(res => {
+        if (res.data.success) {
+          const formattedUsers: User[] = (res.data.data as RawUser[]).map((user) => ({
+            id: user.id,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            role: user.role,
+          }));
+          setUsers(formattedUsers);
+        } else {
+          console.error("Data fetch error:", res.data.error);
+        }
+      })
+      .catch(err => console.error("Error fetching users:", err));
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleEdit = (id: number, currentRole: string) => {
+    setEditingUserId(id);
+    setNewRole(currentRole);
+  };
+
+  const handleSave = (id: number) => {
+    axios.put(`http://localhost:8000/users/${id}/role`, { role: newRole })
+      .then(() => {
+        setUsers(prev => prev.map(user =>
+          user.id === id ? { ...user, role: newRole as User["role"] } : user
+        ));
+        setEditingUserId(null);
+      })
+      .catch(err => console.error("Error updating role:", err));
+  };
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <div className="p-4">
+        <Input
+          placeholder="Kërko përdorues..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-1/3"
+        />
+      </div>
+
       <div className="max-w-full overflow-x-auto">
         <Table>
-          {/* Table Header */}
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
             <TableRow>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                User
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Project Name
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Team
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Status
-              </TableCell>
-              <TableCell
-                isHeader
-                className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400"
-              >
-                Budget
-              </TableCell>
+              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">ID</TableCell>
+              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">First Name</TableCell>
+              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Last Name</TableCell>
+              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Role</TableCell>
+              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Action</TableCell>
             </TableRow>
           </TableHeader>
 
-          {/* Table Body */}
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {tableData.map((order) => (
-              <TableRow key={order.id}>
-                <TableCell className="px-5 py-4 sm:px-6 text-start">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 overflow-hidden rounded-full">
-                      <img
-                        width={40}
-                        height={40}
-                        src={order.user.image}
-                        alt={order.user.name}
-                      />
-                    </div>
-                    <div>
-                      <span className="block font-medium text-gray-800 text-theme-sm dark:text-white/90">
-                        {order.user.name}
-                      </span>
-                      <span className="block text-gray-500 text-theme-xs dark:text-gray-400">
-                        {order.user.role}
-                      </span>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  {order.projectName}
-                </TableCell>
-                <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  <div className="flex -space-x-2">
-                    {order.team.images.map((teamImage, index) => (
-                      <div
-                        key={index}
-                        className="w-6 h-6 overflow-hidden border-2 border-white rounded-full dark:border-gray-900"
+            {users
+              .filter(user =>
+                user.firstName.toLowerCase().includes(search.toLowerCase()) ||
+                user.lastName.toLowerCase().includes(search.toLowerCase())
+              )
+              .map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="px-5 py-4 text-start">{user.id}</TableCell>
+                  <TableCell className="px-5 py-4 text-start">{user.firstName}</TableCell>
+                  <TableCell className="px-5 py-4 text-start">{user.lastName}</TableCell>
+                  <TableCell className="px-5 py-4 text-start">
+                    {editingUserId === user.id ? (
+                      <select
+                        className="border px-2 py-1 rounded"
+                        value={newRole}
+                        onChange={(e) => setNewRole(e.target.value)}
                       >
-                        <img
-                          width={24}
-                          height={24}
-                          src={teamImage}
-                          alt={`Team member ${index + 1}`}
-                          className="w-full size-6"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </TableCell>
-                <TableCell className="px-4 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">
-                  <Badge
-                    size="sm"
-                    color={
-                      order.status === "Active"
-                        ? "success"
-                        : order.status === "Pending"
-                        ? "warning"
-                        : "error"
-                    }
-                  >
-                    {order.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="px-4 py-3 text-gray-500 text-theme-sm dark:text-gray-400">
-                  {order.budget}
-                </TableCell>
-              </TableRow>
-            ))}
+                        <option value="admin">admin</option>
+                        <option value="staff">staff</option>
+                        <option value="guest">guest</option>
+                      </select>
+                    ) : (
+                      user.role
+                    )}
+                  </TableCell>
+                  <TableCell className="px-5 py-4 text-start">
+                    {editingUserId === user.id ? (
+                      <Button onClick={() => handleSave(user.id)}>Save</Button>
+                    ) : (
+                      <Button onClick={() => handleEdit(user.id, user.role)}>Edit</Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       </div>
