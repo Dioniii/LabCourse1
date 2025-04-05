@@ -13,7 +13,26 @@ app.use(cors());
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => console.log(`SERVER IS RUNNING ON ${PORT}`));
 
-// GET all users
+// JWT secret key
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+
+// Middleware to verify JWT
+const authenticateJWT = (req, res, next) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ success: false, message: 'Invalid or expired token' });
+    }
+    req.user = user;
+    next();
+  });
+};
+
+// GET all users 
 app.get('/users', async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -23,6 +42,7 @@ app.get('/users', async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 // REGISTER user
 app.post("/register", async (req, res) => {
@@ -73,9 +93,22 @@ app.post("/signin", async (req, res) => {
       return res.status(400).json({ success: false, message: "Password is incorrect" });
     }
 
+    // JWT TOKEN RUHET ME KETO T DHENA
+    const token = jwt.sign(
+      {
+        id: user.id,
+        first_name: user.first_name, 
+        last_name: user.last_name,   
+        email: user.email,
+      },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
     res.status(200).json({
       success: true,
       message: "User authenticated successfully",
+      token, 
       user: {
         id: user.id,
         email: user.email
@@ -86,6 +119,7 @@ app.post("/signin", async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 // UPDATE role
 app.put('/users/:id/role', async (req, res) => {
@@ -116,4 +150,38 @@ app.put('/users/:id/role', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+
+// JWT MIDDLEWARE
+const authenticateToken = (req, res, next) => {
+  const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
+
+  if (!token) {
+    return res.status(400).json({ success: false, message: "No token provided" });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ success: false, message: "Invalid or expired token" });
+    }
+
+
+    req.user = decoded;
+    next(); 
+  });
+};
+
+// route to get the current user's info
+app.get('/current-user', authenticateToken, (req, res) => {
+  const { first_name, last_name } = req.user; 
+
+  res.status(200).json({
+    success: true,
+    message: "User info retrieved successfully",
+    user: {
+      first_name,
+      last_name
+    }
+  });
 });
