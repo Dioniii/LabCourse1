@@ -58,7 +58,7 @@ app.post("/register", async (req, res) => {
       .input("email", sql.VarChar, email)
       .input("phone", sql.VarChar, phone)
       .input("password", sql.VarChar, hashedPassword)
-      .query("INSERT INTO HotelManagement.dbo.users (first_name, last_name, email, phone, password) VALUES (@first_name, @last_name, @email, @phone, @password)");
+      .query("INSERT INTO HotelManagement.dbo.users (first_name, last_name, email, phone, password, role) VALUES (@first_name, @last_name, @email, @phone, @password, 'guest')");
 
     res.status(201).json({ success: true, message: "User registered successfully" });
 
@@ -96,6 +96,7 @@ app.post("/signin", async (req, res) => {
         first_name: user.first_name,
         last_name: user.last_name,
         email: user.email,
+        role: user.role
       },
       JWT_SECRET,
       { expiresIn: '1h' }
@@ -107,7 +108,8 @@ app.post("/signin", async (req, res) => {
       token,
       user: {
         id: user.id,
-        email: user.email
+        email: user.email,
+        role: user.role,
       }
     });
 
@@ -129,7 +131,6 @@ app.put("/users/:id/role", authenticateJWT, async (req, res) => {
   try {
     const pool = await poolPromise;
 
-    // Kontrollo nëse përdoruesi është admin
     const result = await pool.request()
       .input("id", sql.Int, req.user.id)
       .query("SELECT role FROM HotelManagement.dbo.users WHERE id = @id");
@@ -143,6 +144,7 @@ app.put("/users/:id/role", authenticateJWT, async (req, res) => {
       .input("id", sql.Int, id)
       .input("role", sql.VarChar, role)
       .query("UPDATE HotelManagement.dbo.users SET role = @role WHERE id = @id");
+
     res.status(200).json({ success: true, message: "User role updated successfully" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { jwtDecode } from 'jwt-decode';
 import axios from "axios";
 import {
   Table,
@@ -32,11 +33,33 @@ interface RawUser {
   role: "admin" | "staff" | "guest";
 }
 
+interface DecodedToken {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: "admin" | "staff" | "guest";
+  exp: number;
+}
+
 export default function BasicTableOne() {
   const [users, setUsers] = useState<User[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [newRole, setNewRole] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
+  const [currentUserRole, setCurrentUserRole] = useState<"admin" | "staff" | "guest" | null>(null);
+
+  const getCurrentUserRole = (): "admin" | "staff" | "guest" | null => {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) return null;
+
+    try {
+      const decoded = jwtDecode<DecodedToken>(token);
+      return decoded.role;
+    } catch {
+      return null;
+    }
+  };
 
   const fetchUsers = () => {
     const token = localStorage.getItem("jwtToken");
@@ -67,7 +90,16 @@ export default function BasicTableOne() {
   };
 
   useEffect(() => {
+    setCurrentUserRole(getCurrentUserRole());
     fetchUsers();
+
+    // Rifresko rolin e përdoruesit çdo 1 sekondë
+    const interval = setInterval(() => {
+      const role = getCurrentUserRole();
+      setCurrentUserRole(role);
+    }, 1000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handleEdit = (id: number, currentRole: string) => {
@@ -145,10 +177,12 @@ export default function BasicTableOne() {
                   )}
                 </TableCell>
                 <TableCell className="px-5 py-4 text-start">
-                  {editingUserId === user.id ? (
-                    <Button onClick={() => handleSave(user.id)}>Save</Button>
-                  ) : (
-                    <Button onClick={() => handleEdit(user.id, user.role)}>Edit</Button>
+                  {currentUserRole === "admin" && (
+                    editingUserId === user.id ? (
+                      <Button onClick={() => handleSave(user.id)}>Save</Button>
+                    ) : (
+                      <Button onClick={() => handleEdit(user.id, user.role)}>Edit</Button>
+                    )
                   )}
                 </TableCell>
               </TableRow>
