@@ -150,3 +150,67 @@ app.put("/users/:id/role", authenticateJWT, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// ADMIN CREATE USER
+app.post("/users", authenticateJWT, async (req, res) => {
+  const { first_name, last_name, email, phone, password, role } = req.body;
+  const validRoles = ['admin', 'staff', 'guest'];
+
+  console.log("Received data:", req.body); // për debug
+
+  if (!first_name || !last_name || !email || !password || !role) {
+    return res.status(400).json({ success: false, message: "All fields except phone are required" });
+  }
+
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ success: false, message: "Invalid role" });
+  }
+
+  try {
+    const pool = await poolPromise;
+    const currentUserRole = req.user.role;
+
+    if (currentUserRole !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admin can create users" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await pool.request()
+      .input("first_name", sql.VarChar, first_name)
+      .input("last_name", sql.VarChar, last_name)
+      .input("email", sql.VarChar, email)
+      .input("phone", sql.VarChar, phone || null) // për siguri
+      .input("password", sql.VarChar, hashedPassword)
+      .input("role", sql.VarChar, role)
+      .query("INSERT INTO HotelManagement.dbo.users (first_name, last_name, email, phone, password, role) VALUES (@first_name, @last_name, @email, @phone, @password, @role)");
+
+    res.status(201).json({ success: true, message: "User created successfully" });
+
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE USER
+app.delete("/users/:id", authenticateJWT, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const pool = await poolPromise;
+    const currentUserRole = req.user.role;
+
+    if (currentUserRole !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admin can delete users" });
+    }
+
+    await pool.request()
+      .input("id", sql.Int, id)
+      .query("DELETE FROM HotelManagement.dbo.users WHERE id = @id");
+
+    res.status(200).json({ success: true, message: "User deleted successfully" });
+
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
