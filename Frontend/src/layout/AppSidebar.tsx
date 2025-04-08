@@ -27,22 +27,22 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  {
-    icon: <GridIcon />,
-    name: "Dashboard",
-    path: "/dashboard",
-  },
-  {
-      icon: null, // nuk ka ikonë për nën-item
-      name: "Bookings",
-      path: "/dashboard/bookings",
-      parent: "Dashboard", // për t’u indentuar vizualisht
-  },
-  {
-    icon: null, 
-    name: "Room Status",
-    path: "/dashboard/room",
-    parent: "Dashboard",
+{
+  icon: <GridIcon />,
+  name: "Dashboard",
+  path: "/",
+},
+{
+  icon: null, // nuk ka ikonë për nën-item
+  name: "Bookings",
+  path: "/booking",
+  parent: "Dashboard", // për t’u indentuar vizualisht
+},
+{
+  icon: null, 
+  name: "Room Status",
+  path: "/dashboard/room",
+  parent: "Dashboard",
 },
 {
   icon: null, 
@@ -56,32 +56,32 @@ const navItems: NavItem[] = [
   path: "/dashboard/Check",
   parent: "Dashboard",
 },
-  {
-    icon: <CalenderIcon />,
-    name: "Calendar",
-    path: "/calendar",
-  },
-  {
-    icon: <UserCircleIcon />,
-    name: "User Profile",
-    path: "/profile",
-  },
-  {
-    name: "Forms",
-    icon: <ListIcon />,
-    subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
-  },
-  {
-    name: "Staff Management",
-    icon: <TableIcon />,
-    subItems: [{ name: "User List", path: "/basic-tables", pro: false }],
-  },
-  {
-    name: "Pages",
-    icon: <PageIcon />,
-    subItems: [
-      { name: "Blank Page", path: "/blank", pro: false },
-      { name: "404 Error", path: "/error-404", pro: false },
+{
+  icon: <CalenderIcon />,
+  name: "Calendar",
+  path: "/calendar",
+},
+{
+  icon: <UserCircleIcon />,
+  name: "User Profile",
+  path: "/profile",
+},
+{
+  name: "Forms",
+  icon: <ListIcon />,
+  subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
+},
+{
+  name: "Staff Management",
+  icon: <TableIcon />,
+  subItems: [{ name: "User List", path: "/basic-tables", pro: false }],
+},
+{
+  name: "Pages",
+  icon: <PageIcon />,
+  subItems: [
+    { name: "Blank Page", path: "/blank", pro: false },
+    { name: "404 Error", path: "/error-404", pro: false },
     ],
   },
 ];

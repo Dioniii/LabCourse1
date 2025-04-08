@@ -226,6 +226,3 @@ app.get('/me', authenticateJWT, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
-
-
-fc47cc311a30390e02978b2dbd50fce82d7e4682
