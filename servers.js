@@ -214,3 +214,16 @@ app.delete("/users/:id", authenticateJWT, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+//info per user logged in
+app.get('/me', authenticateJWT, async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().input("id", sql.Int, req.user.id).query("SELECT first_name, last_name, email FROM HotelManagement.dbo.users WHERE id = @id");
+    res.status(200).json({ success: true, data: result.recordset[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+
