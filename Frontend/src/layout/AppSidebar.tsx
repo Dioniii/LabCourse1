@@ -22,6 +22,7 @@ type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
+  parent?: string;
   subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
 };
 
@@ -29,8 +30,32 @@ const navItems: NavItem[] = [
   {
     icon: <GridIcon />,
     name: "Dashboard",
-    subItems: [{ name: "Ecommerce", path: "/", pro: false }],
+    path: "/dashboard",
   },
+  {
+      icon: null, // nuk ka ikonë për nën-item
+      name: "Bookings",
+      path: "/dashboard/bookings",
+      parent: "Dashboard", // për t’u indentuar vizualisht
+  },
+  {
+    icon: null, 
+    name: "Room Status",
+    path: "/dashboard/room",
+    parent: "Dashboard",
+},
+{
+  icon: null, 
+  name: "Revenue",
+  path: "/dashboard/revenue",
+  parent: "Dashboard",
+},
+{
+  icon: null, 
+  name: "Check-ins/outs",
+  path: "/dashboard/Check",
+  parent: "Dashboard",
+},
   {
     icon: <CalenderIcon />,
     name: "Calendar",
@@ -63,8 +88,11 @@ const navItems: NavItem[] = [
 
 const othersItems: NavItem[] = [
   {
+    //icon merret praj folderit icon, qe jan te permendura lart,
+    // dhe te insertume prej pc ne index.ts
     icon: <PieChartIcon />,
     name: "Charts",
+    //name karakterizohet ikona me emer, pra i bashkangjitet si tekst ikones
     subItems: [
       { name: "Line Chart", path: "/line-chart", pro: false },
       { name: "Bar Chart", path: "/bar-chart", pro: false },
@@ -306,13 +334,21 @@ const AppSidebar: React.FC = () => {
         <Link to="/">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
-              <img
+
+
+              {/* <img
                 className="dark:hidden"
                 src="/images/logo/logo.svg"
                 alt="Logo"
                 width={150}
                 height={40}
-              />
+              /> ktu osht vendi per logo*/} 
+
+              {
+                <p>Bookly</p>
+              }
+
+
               <img
                 className="hidden dark:block"
                 src="/images/logo/logo-dark.svg"
@@ -321,13 +357,17 @@ const AppSidebar: React.FC = () => {
                 height={40}
               />
             </>
+
+
           ) : (
-            <img
-              src="/images/logo/logo-icon.svg"
-              alt="Logo"
-              width={32}
-              height={32}
-            />
+            // <img
+            //   src="/images/logo/logo-icon.svg"
+            //   alt="Logo"
+            //   width={32}
+            //   height={32}
+            // pjesa kur mshelet logo prej klikimit slidebar/>
+            <p>Bookly</p>
+
           )}
         </Link>
       </div>
