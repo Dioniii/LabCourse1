@@ -1,12 +1,13 @@
-import RecentOrders from "../components/ecommerce/RecentOrders";
+import RecentOrdersForRooms from './RecentOrdersForRooms';
 
 const RoomStatus = () => {
-    return (
-        <>
-            <div className="col-span-12 xl:col-span-7">
-              <RecentOrders />
-            </div>
-        </>
-      );
-    }
-  export default RoomStatus;
+  return (
+    <div>
+      <h1>Room Status Page</h1>
+      <RecentOrdersForRooms />
+    </div>
+  );
+};
+
+export default RoomStatus;
+

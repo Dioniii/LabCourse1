@@ -2,20 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import {
-  BoxCubeIcon,
   CalenderIcon,
   ChevronDownIcon,
   GridIcon,
   HorizontaLDots,
-  ListIcon,
-  PageIcon,
-  PieChartIcon,
-  PlugInIcon,
   TableIcon,
   UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import SidebarWidget from "./SidebarWidget";
+import { Bookmark, Bed, DollarSign, Repeat } from "lucide-react";
 
 type NavItem = {
   name: string;
@@ -32,29 +28,30 @@ const navItems: NavItem[] = [
     path: "/",
   },
   {
-    icon: null,
+    icon: <Bookmark className="w-5 h-5 stroke-[1.5]" />, 
     name: "Bookings",
-    path: "/booking",
+    path: "/Bookings/Bookings",
     parent: "Dashboard",
   },
   {
-    icon: null,
-    name: "Rooms",
-    path: "/Rooms/Rooms",
+    icon: <Bed className="w-5 h-5 stroke-[1.5]" />,
+    name: "Room Status",
+    path: "/room-status",
     parent: "Dashboard",
   },
   {
-    icon: null,
+    icon: <DollarSign className="w-5 h-5 stroke-[1.2]" />, 
     name: "Revenue",
-    path: "/dashboard/revenue",
+    path: "/Revenue",
     parent: "Dashboard",
   },
   {
-    icon: null,
+    icon: <Repeat className="w-5 h-5 stroke-[1.2]" />, 
     name: "Check-ins/outs",
-    path: "/dashboard/Check",
+    path: "/Checkins",
     parent: "Dashboard",
   },
+  
   {
     icon: <CalenderIcon />,
     name: "Calendar",

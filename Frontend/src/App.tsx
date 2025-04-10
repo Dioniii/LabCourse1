@@ -19,7 +19,9 @@ import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
-
+import Bookings from './layout/Bookings.jsx';
+import Revenue from './layout/Revenue';
+import Checkins from './layout/Checkins';
 
 export default function App() {
   return (
@@ -31,6 +33,9 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index path="/" element={<Home />} />
             <Route path="/room-status" element={<Room />} />
+            <Route path="/Bookings/Bookings" element={<Bookings />} />
+            <Route path="/Revenue" element={<Revenue />} />
+            <Route path="/Checkins" element={<Checkins />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />
