@@ -122,7 +122,7 @@ app.post("/signin", async (req, res) => {
 app.put("/users/:id/role", authenticateJWT, async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
-  const validRoles = ['admin', 'staff', 'guest'];
+  const validRoles = ['admin', 'guest', 'cleaner'];
 
   if (!validRoles.includes(role)) {
     return res.status(400).json({ success: false, message: "Invalid role" });
@@ -154,7 +154,7 @@ app.put("/users/:id/role", authenticateJWT, async (req, res) => {
 // ADMIN CREATE USER
 app.post("/users", authenticateJWT, async (req, res) => {
   const { first_name, last_name, email, phone, password, role } = req.body;
-  const validRoles = ['admin', 'staff', 'guest'];
+  const validRoles = ['admin', 'guest', 'cleaner'];
 
   console.log("Received data:", req.body); // për debug
 

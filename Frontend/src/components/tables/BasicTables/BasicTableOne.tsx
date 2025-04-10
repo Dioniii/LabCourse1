@@ -23,7 +23,7 @@ interface User {
   id: number;
   firstName: string;
   lastName: string;
-  role: "admin" | "staff" | "guest";
+  role: "admin" | "guest" | "cleaner";
   phone?: string;
 }
 
@@ -31,7 +31,7 @@ interface RawUser {
   id: number;
   first_name: string;
   last_name: string;
-  role: "admin" | "staff" | "guest";
+  role: "admin" | "guest" | "cleaner";
   phone?: string;
 }
 
@@ -40,7 +40,7 @@ interface DecodedToken {
   first_name: string;
   last_name: string;
   email: string;
-  role: "admin" | "staff" | "guest";
+  role: "admin" | "guest" | "cleaner";
   exp: number;
 }
 
@@ -49,14 +49,14 @@ export default function BasicTableOne() {
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [newRole, setNewRole] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [currentUserRole, setCurrentUserRole] = useState<"admin" | "staff" | "guest" | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<"admin" | "guest" | "cleaner" | null>(null);
 
   // Input fields for create
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
   const [email, setEmail] = useState<string>(""); // NEW
   const [password, setPassword] = useState<string>(""); // NEW
-  const [role, setRole] = useState<"admin" | "staff" | "guest">("guest");
+  const [role, setRole] = useState<"admin" | "guest" | "cleaner">("guest");
   const [phone, setPhone] = useState<string>("");
 
   const handleDelete = (id: number) => {
@@ -74,7 +74,7 @@ export default function BasicTableOne() {
       .catch(err => console.error("Error deleting user:", err));
   };
 
-  const getCurrentUserRole = (): "admin" | "staff" | "guest" | null => {
+  const getCurrentUserRole = (): "admin" | "guest" | "cleaner" | null => {
     const token = localStorage.getItem("jwtToken");
     if (!token) return null;
 
@@ -225,10 +225,10 @@ export default function BasicTableOne() {
             <select
               className="border px-2 py-1 rounded w-full"
               value={role}
-              onChange={(e) => setRole(e.target.value as "admin" | "staff" | "guest")}
+              onChange={(e) => setRole(e.target.value as "admin" | "guest" | "cleaner")}
             >
               <option value="admin">admin</option>
-              <option value="staff">staff</option>
+              <option value="cleaner">cleaner</option>
               <option value="guest">guest</option>
             </select>
           </div>
@@ -263,7 +263,7 @@ export default function BasicTableOne() {
                       onChange={(e) => setNewRole(e.target.value)}
                     >
                       <option value="admin">admin</option>
-                      <option value="staff">staff</option>
+                      <option value="cleaner">cleaner</option>
                       <option value="guest">guest</option>
                     </select>
                   ) : (
