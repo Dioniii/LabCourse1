@@ -41,7 +41,7 @@ const navItems: NavItem[] = [
 {
   icon: null, 
   name: "Room Status",
-  path: "/dashboard/room",
+  path: "/room-status",
   parent: "Dashboard",
 },
 {

@@ -226,3 +226,37 @@ app.get('/me', authenticateJWT, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// edit profile 
+
+// UPDATE own profile (no password or ID change)
+app.put('/editProfile', authenticateJWT, async (req, res) => {
+  try {
+    const { first_name, last_name, email, phone } = req.body;
+
+    if (!first_name || !last_name || !email || !phone) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
+    }
+
+    const pool = await poolPromise;
+    await pool.request()
+      .input("id", sql.Int, req.user.id)
+      .input("first_name", sql.VarChar, first_name)
+      .input("last_name", sql.VarChar, last_name)
+      .input("email", sql.VarChar, email)
+      .input("phone", sql.VarChar, phone)
+      .query(`
+        UPDATE HotelManagement.dbo.users
+        SET first_name = @first_name,
+            last_name = @last_name,
+            email = @email,
+            phone = @phone
+        WHERE id = @id
+      `);
+
+    res.status(200).json({ success: true, message: "Profile updated successfully" });
+
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
