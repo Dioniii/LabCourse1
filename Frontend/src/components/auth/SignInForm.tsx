@@ -28,11 +28,9 @@ export default function SignInForm() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
       
-      // Save JWT token to localStorage
-      const token = data.token; // Assuming token is in the response object
-      localStorage.setItem("jwtToken", token); // Store the token
+      const token = data.token; 
+      localStorage.setItem("jwtToken", token); 
 
-      // Redirect to dashboard or home page after successful login
       navigate("/"); 
     } catch (err) {
       setError((err as Error).message);
