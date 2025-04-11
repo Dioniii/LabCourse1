@@ -260,3 +260,17 @@ app.put('/editProfile', authenticateJWT, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// Get all rooms
+
+app.get("/rooms", authenticateJWT, async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .query("SELECT * FROM HotelManagement.dbo.rooms");
+
+    res.status(200).json({ success: true, data: result.recordset });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
