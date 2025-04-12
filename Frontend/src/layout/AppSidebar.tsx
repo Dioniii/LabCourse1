@@ -270,17 +270,26 @@ const AppSidebar: React.FC = () => {
         <Link to="/">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
-              <p>Bookly</p>
+                 <img className="block dark:hidden"
+              src="/images/logo/logo.svg"
+              alt="Logo"
+              width={120}
+              height={40}
+              />
               <img
                 className="hidden dark:block"
                 src="/images/logo/logo-dark.svg"
                 alt="Logo"
-                width={150}
+                width={120}
                 height={40}
               />
             </>
           ) : (
-            <p>Bookly</p>
+            <img
+            src="/images/logo/logo-icon.svg"
+            alt="Logo"
+            className="w-[36px] h-auto"
+            />
           )}
         </Link>
       </div>
