@@ -118,11 +118,17 @@ app.post("/signin", async (req, res) => {
   }
 });
 
+const roleTableMap = {
+  admin: "admin",
+  guest: "guest",
+  cleaner: "cleaner"
+};
+
 // UPDATE USER ROLE (admin only)
 app.put("/users/:id/role", authenticateJWT, async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
-  const validRoles = ['admin', 'guest', 'cleaner'];
+  const validRoles = Object.keys(roleTableMap);
 
   if (!validRoles.includes(role)) {
     return res.status(400).json({ success: false, message: "Invalid role" });
@@ -131,6 +137,7 @@ app.put("/users/:id/role", authenticateJWT, async (req, res) => {
   try {
     const pool = await poolPromise;
 
+    // Kontrollo nëse përdoruesi është admin
     const result = await pool.request()
       .input("id", sql.Int, req.user.id)
       .query("SELECT role FROM HotelManagement.dbo.users WHERE id = @id");
@@ -140,12 +147,33 @@ app.put("/users/:id/role", authenticateJWT, async (req, res) => {
       return res.status(403).json({ success: false, message: "Only admin can change roles" });
     }
 
+    // Gjej rolin aktual të përdoruesit që do të ndryshohet
+    const userResult = await pool.request()
+      .input("id", sql.Int, id)
+      .query("SELECT role FROM HotelManagement.dbo.users WHERE id = @id");
+
+    const previousRole = userResult.recordset[0]?.role;
+
+    // Përditëso rolin në tabelën users
     await pool.request()
       .input("id", sql.Int, id)
       .input("role", sql.VarChar, role)
       .query("UPDATE HotelManagement.dbo.users SET role = @role WHERE id = @id");
 
+    // Fshij nga tabela e vjetër e rolit nëse ekziston
+    if (previousRole && roleTableMap[previousRole]) {
+      await pool.request()
+        .input("user_id", sql.Int, id)
+        .query(`DELETE FROM HotelManagement.dbo.${roleTableMap[previousRole]} WHERE user_id = @user_id`);
+    }
+
+    // Shto në tabelën e re të rolit
+    await pool.request()
+      .input("user_id", sql.Int, id)
+      .query(`INSERT INTO HotelManagement.dbo.${roleTableMap[role]} (user_id) VALUES (@user_id)`);
+
     res.status(200).json({ success: true, message: "User role updated successfully" });
+
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
@@ -154,9 +182,7 @@ app.put("/users/:id/role", authenticateJWT, async (req, res) => {
 // ADMIN CREATE USER
 app.post("/users", authenticateJWT, async (req, res) => {
   const { first_name, last_name, email, phone, password, role } = req.body;
-  const validRoles = ['admin', 'guest', 'cleaner'];
-
-  console.log("Received data:", req.body); // për debug
+  const validRoles = Object.keys(roleTableMap);
 
   if (!first_name || !last_name || !email || !password || !role) {
     return res.status(400).json({ success: false, message: "All fields except phone are required" });
@@ -168,22 +194,34 @@ app.post("/users", authenticateJWT, async (req, res) => {
 
   try {
     const pool = await poolPromise;
-    const currentUserRole = req.user.role;
 
-    if (currentUserRole !== "admin") {
+    if (req.user.role !== "admin") {
       return res.status(403).json({ success: false, message: "Only admin can create users" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await pool.request()
+    // Shto përdoruesin në tabelën users
+    const insertResult = await pool.request()
       .input("first_name", sql.VarChar, first_name)
       .input("last_name", sql.VarChar, last_name)
       .input("email", sql.VarChar, email)
-      .input("phone", sql.VarChar, phone || null) // për siguri
+      .input("phone", sql.VarChar, phone || null)
       .input("password", sql.VarChar, hashedPassword)
       .input("role", sql.VarChar, role)
-      .query("INSERT INTO HotelManagement.dbo.users (first_name, last_name, email, phone, password, role) VALUES (@first_name, @last_name, @email, @phone, @password, @role)");
+      .query(`
+        INSERT INTO HotelManagement.dbo.users 
+        (first_name, last_name, email, phone, password, role)
+        OUTPUT INSERTED.id
+        VALUES (@first_name, @last_name, @email, @phone, @password, @role)
+      `);
+
+    const newUserId = insertResult.recordset[0].id;
+
+    // Shto në tabelën përkatëse të rolit
+    await pool.request()
+      .input("user_id", sql.Int, newUserId)
+      .query(`INSERT INTO HotelManagement.dbo.${roleTableMap[role]} (user_id) VALUES (@user_id)`);
 
     res.status(201).json({ success: true, message: "User created successfully" });
 
@@ -192,18 +230,31 @@ app.post("/users", authenticateJWT, async (req, res) => {
   }
 });
 
-// DELETE USER
 app.delete("/users/:id", authenticateJWT, async (req, res) => {
   const { id } = req.params;
 
   try {
     const pool = await poolPromise;
-    const currentUserRole = req.user.role;
 
-    if (currentUserRole !== "admin") {
+    if (req.user.role !== "admin") {
       return res.status(403).json({ success: false, message: "Only admin can delete users" });
     }
 
+    // Gjej rolin e përdoruesit për të fshirë nga tabela përkatëse
+    const roleResult = await pool.request()
+      .input("id", sql.Int, id)
+      .query("SELECT role FROM HotelManagement.dbo.users WHERE id = @id");
+
+    const userRole = roleResult.recordset[0]?.role;
+
+    // Fshij nga tabela role-specifike nëse roli ekziston
+    if (userRole && roleTableMap[userRole]) {
+      await pool.request()
+        .input("user_id", sql.Int, id)
+        .query(`DELETE FROM HotelManagement.dbo.${roleTableMap[userRole]} WHERE user_id = @user_id`);
+    }
+
+    // Fshij nga tabela users
     await pool.request()
       .input("id", sql.Int, id)
       .query("DELETE FROM HotelManagement.dbo.users WHERE id = @id");
@@ -213,23 +264,9 @@ app.delete("/users/:id", authenticateJWT, async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
- HEAD
 });
 
-//info per user logged in
-app.get('/me', authenticateJWT, async (req, res) => {
-  try {
-    const pool = await poolPromise;
-    const result = await pool.request().input("id", sql.Int, req.user.id).query("SELECT first_name, last_name, email, phone, role FROM HotelManagement.dbo.users WHERE id = @id");
-    res.status(200).json({ success: true, data: result.recordset[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// edit profile 
-
-// UPDATE own profile (no password or ID change)
+// EDIT PROFILE
 app.put('/editProfile', authenticateJWT, async (req, res) => {
   try {
     const { first_name, last_name, email, phone } = req.body;
