@@ -299,7 +299,6 @@ app.put('/editProfile', authenticateJWT, async (req, res) => {
 });
 
 // Get all rooms
-
 app.get("/rooms", authenticateJWT, async (req, res) => {
   try {
     const pool = await poolPromise;
@@ -307,6 +306,30 @@ app.get("/rooms", authenticateJWT, async (req, res) => {
       .query("SELECT * FROM HotelManagement.dbo.rooms");
 
     res.status(200).json({ success: true, data: result.recordset });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Update room category and status
+app.put("/rooms/:id", authenticateJWT, async (req, res) => {
+  const { id } = req.params;
+  const { category, status, maintenance_notes } = req.body;
+
+  try {
+    const pool = await poolPromise;
+    await pool.request()
+      .input("id", id)
+      .input("category", category)
+      .input("status", status)
+      .input("maintenance_notes", maintenance_notes)
+      .query(`
+        UPDATE HotelManagement.dbo.rooms 
+        SET category = @category, status = @status, maintenance_notes = @maintenance_notes
+        WHERE id = @id
+      `);
+
+    res.status(200).json({ success: true, message: "Room updated successfully" });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
