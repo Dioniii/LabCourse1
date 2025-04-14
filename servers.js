@@ -334,3 +334,81 @@ app.put("/rooms/:id", authenticateJWT, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// CREATE ROOM
+app.post("/rooms", authenticateJWT, async (req, res) => {
+  const { room_number, category, price, status, maintenance_notes } = req.body;
+  const validCategories = ["Standard", "Deluxe", "Suite"];
+  const validStatuses = ["Available", "Occupied", "Maintenance"];
+
+  if (!room_number || !category || !price) {
+    return res.status(400).json({ success: false, message: "room_number, category, and price are required" });
+  }
+
+  if (!validCategories.includes(category)) {
+    return res.status(400).json({ success: false, message: "Invalid category" });
+  }
+
+  if (status && !validStatuses.includes(status)) {
+    return res.status(400).json({ success: false, message: "Invalid status" });
+  }
+
+  try {
+    const pool = await poolPromise;
+
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admin can create rooms" });
+    }
+
+    await pool.request()
+      .input("room_number", sql.VarChar, room_number)
+      .input("category", sql.VarChar, category)
+      .input("price", sql.Decimal(10, 2), price)
+      .input("status", sql.VarChar, status || "Available")
+      .input("maintenance_notes", sql.VarChar, maintenance_notes || null)
+      .query(`
+        INSERT INTO HotelManagement.dbo.rooms 
+        (room_number, category, price, status, maintenance_notes)
+        VALUES (@room_number, @category, @price, @status, @maintenance_notes)
+      `);
+
+    res.status(201).json({ success: true, message: "Room created successfully" });
+
+  } catch (error) {
+    if (error.originalError?.info?.number === 2627) { // duplicate key
+      res.status(400).json({ success: false, message: "Room number already exists" });
+    } else {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+});
+
+// DELETE ROOM
+app.delete("/rooms/:id", authenticateJWT, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const pool = await poolPromise;
+
+    if (req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admin can delete rooms" });
+    }
+
+    const checkResult = await pool.request()
+      .input("id", sql.Int, id)
+      .query("SELECT * FROM HotelManagement.dbo.rooms WHERE id = @id");
+
+    if (checkResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: "Room not found" });
+    }
+
+    await pool.request()
+      .input("id", sql.Int, id)
+      .query("DELETE FROM HotelManagement.dbo.rooms WHERE id = @id");
+
+    res.status(200).json({ success: true, message: "Room deleted successfully" });
+
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});

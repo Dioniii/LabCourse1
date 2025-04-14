@@ -281,7 +281,7 @@ export default function BasicTableOne() {
                 </TableCell>
                 <TableCell className="px-5 py-4 text-start">
                   {currentUserRole === "admin" && (
-                    <Button onClick={() => handleDelete(user.id)} className="bg-red-600">
+                    <Button onClick={() => handleDelete(user.id)} className="text-sm px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600">
                       Delete
                     </Button>
                   )}

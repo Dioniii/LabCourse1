@@ -30,6 +30,13 @@ export default function RoomTable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editedRoom, setEditedRoom] = useState<Partial<Room>>({});
+  const [newRoom, setNewRoom] = useState<Partial<Room>>({
+    room_number: "",
+    category: "Standard",
+    price: 0,
+    status: "Available",
+    maintenance_notes: "",
+  });
 
   const fetchRooms = () => {
     const token = localStorage.getItem("jwtToken");
@@ -52,7 +59,6 @@ export default function RoomTable() {
 
   const handleEditSaveClick = async (index: number, room: Room) => {
     if (editIndex === index) {
-      // SAVE
       const token = localStorage.getItem("jwtToken");
       try {
         await axios.put(
@@ -75,9 +81,58 @@ export default function RoomTable() {
         console.error("Gabim gjatë përditësimit të dhomës:", error);
       }
     } else {
-      // EDIT
       setEditIndex(index);
       setEditedRoom(room);
+    }
+  };
+
+  const handleDeleteRoom = async (id: number) => {
+    const token = localStorage.getItem("jwtToken");
+    if (!window.confirm("A jeni i sigurt që doni ta fshini këtë dhomë?")) return;
+
+    try {
+      await axios.delete(`http://localhost:8000/rooms/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      fetchRooms();
+    } catch (error) {
+      console.error("Gabim gjatë fshirjes së dhomës:", error);
+    }
+  };
+
+  const handleCreateRoom = async () => {
+    const token = localStorage.getItem("jwtToken");
+
+    if (!newRoom.room_number || newRoom.price === undefined) {
+      alert("Ju lutem plotësoni numrin e dhomës dhe çmimin.");
+      return;
+    }
+
+    try {
+      await axios.post(
+        "http://localhost:8000/rooms",
+        {
+          room_number: newRoom.room_number,
+          category: newRoom.category,
+          price: newRoom.price,
+          status: newRoom.status,
+          maintenance_notes:
+            newRoom.status === "Maintenance" ? newRoom.maintenance_notes : null,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setNewRoom({
+        room_number: "",
+        category: "Standard",
+        price: 0,
+        status: "Available",
+        maintenance_notes: "",
+      });
+      fetchRooms();
+    } catch (error) {
+      console.error("Gabim gjatë krijimit të dhomës:", error);
     }
   };
 
@@ -87,13 +142,78 @@ export default function RoomTable() {
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-      <div className="p-4">
+      <div className="p-4 space-y-4">
         <Input
           placeholder="Kërko sipas numrit të dhomës..."
           className="w-1/3"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />
+
+        <div className="flex flex-wrap gap-4">
+          <Input
+            placeholder="Room Number"
+            value={newRoom.room_number}
+            onChange={(e) =>
+              setNewRoom((prev) => ({ ...prev, room_number: e.target.value }))
+            }
+          />
+          <Select
+            value={newRoom.category}
+            onChange={(e) =>
+              setNewRoom((prev) => ({
+                ...prev,
+                category: e.target.value as Room["category"],
+              }))
+            }
+          >
+            <option value="Standard">Standard</option>
+            <option value="Deluxe">Deluxe</option>
+            <option value="Suite">Suite</option>
+          </Select>
+          <Input
+            type="number"
+            placeholder="Price"
+            value={newRoom.price}
+            onChange={(e) =>
+              setNewRoom((prev) => ({
+                ...prev,
+                price: parseFloat(e.target.value),
+              }))
+            }
+          />
+          <Select
+            value={newRoom.status}
+            onChange={(e) =>
+              setNewRoom((prev) => ({
+                ...prev,
+                status: e.target.value as Room["status"],
+              }))
+            }
+          >
+            <option value="Available">Available</option>
+            <option value="Occupied">Occupied</option>
+            <option value="Maintenance">Maintenance</option>
+          </Select>
+          {newRoom.status === "Maintenance" && (
+            <Input
+              placeholder="Maintenance Notes"
+              value={newRoom.maintenance_notes || ""}
+              onChange={(e) =>
+                setNewRoom((prev) => ({
+                  ...prev,
+                  maintenance_notes: e.target.value,
+                }))
+              }
+            />
+          )}
+          <button
+            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+            onClick={handleCreateRoom}
+          >
+            Create Room
+          </button>
+        </div>
       </div>
 
       <div className="max-w-full overflow-x-auto">
@@ -107,6 +227,7 @@ export default function RoomTable() {
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Status</TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Maintenance Notes</TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Actions</TableCell>
+              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Delete</TableCell>
             </TableRow>
           </TableHeader>
 
@@ -190,6 +311,15 @@ export default function RoomTable() {
                     {editIndex === index ? "Save" : "Edit"}
                   </button>
                 </TableCell>
+
+                <TableCell className="px-5 py-4 text-start">
+                  <button
+                    className="text-sm px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600"
+                    onClick={() => handleDeleteRoom(room.id)}
+                  >
+                    Delete
+                  </button>
+                </TableCell>
               </TableRow>
             ))}
           </TableBody>
@@ -197,4 +327,5 @@ export default function RoomTable() {
       </div>
     </div>
   );
-} 
+}
+
