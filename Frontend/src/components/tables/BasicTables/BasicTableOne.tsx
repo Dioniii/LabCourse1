@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { jwtDecode } from 'jwt-decode';
+import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 import {
   Table,
@@ -19,11 +19,16 @@ const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input className="border px-2 py-1 rounded w-full" {...props} />
 );
 
+interface Role {
+  id: number;
+  name: "admin" | "guest" | "cleaner";
+}
+
 interface User {
   id: number;
   firstName: string;
   lastName: string;
-  role: "admin" | "guest" | "cleaner";
+  role: Role;
   phone?: string;
 }
 
@@ -31,7 +36,7 @@ interface RawUser {
   id: number;
   first_name: string;
   last_name: string;
-  role: "admin" | "guest" | "cleaner";
+  role: Role;
   phone?: string;
 }
 
@@ -40,7 +45,7 @@ interface DecodedToken {
   first_name: string;
   last_name: string;
   email: string;
-  role: "admin" | "guest" | "cleaner";
+  role: string | Role;
   exp: number;
 }
 
@@ -48,28 +53,29 @@ export default function BasicTableOne() {
   const [users, setUsers] = useState<User[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [newRole, setNewRole] = useState<string>("");
+
   const [searchTerm, setSearchTerm] = useState<string>("");
+
   const [currentUserRole, setCurrentUserRole] = useState<"admin" | "guest" | "cleaner" | null>(null);
 
-  // Input fields for create
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
-  const [email, setEmail] = useState<string>(""); // NEW
-  const [password, setPassword] = useState<string>(""); // NEW
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [role, setRole] = useState<"admin" | "guest" | "cleaner">("guest");
   const [phone, setPhone] = useState<string>("");
 
   const handleDelete = (id: number) => {
     const token = localStorage.getItem("jwtToken");
     if (!window.confirm("Are you sure you want to delete this user?")) return;
-
+  
     axios.delete(`http://localhost:8000/users/${id}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     })
       .then(() => {
-        setUsers(prev => prev.filter(user => user.id !== id));
+        fetchUsers(); // Refresh the users list after delete
       })
       .catch(err => console.error("Error deleting user:", err));
   };
@@ -80,7 +86,11 @@ export default function BasicTableOne() {
 
     try {
       const decoded = jwtDecode<DecodedToken>(token);
-      return decoded.role;
+      if (typeof decoded.role === "string") {
+        return decoded.role as "admin" | "guest" | "cleaner";
+      } else {
+        return decoded.role.name;
+      }
     } catch {
       return null;
     }
@@ -88,29 +98,28 @@ export default function BasicTableOne() {
 
   const fetchUsers = () => {
     const token = localStorage.getItem("jwtToken");
-
+  
     if (!token) {
       console.error("No JWT token found. Please log in.");
     } else {
       axios.get("http://localhost:8000/users", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       })
-        .then(res => {
-          if (res.data.success) {
-            const formattedUsers: User[] = (res.data.data as RawUser[]).map((user) => ({
-              id: user.id,
-              firstName: user.first_name,
-              lastName: user.last_name,
-              role: user.role,
-            }));
-            setUsers(formattedUsers);
-          } else {
-            console.error("Data fetch error:", res.data.error);
-          }
-        })
-        .catch(err => console.error("Error fetching users:", err));
+      .then(res => {
+        if (res.data.success) {
+          const formattedUsers: User[] = (res.data.data as RawUser[]).map((user) => ({
+            id: user.id,
+            firstName: user.first_name,
+            lastName: user.last_name,
+            role: user.role,
+            phone: user.phone,
+          }));
+          setUsers(formattedUsers);
+        } else {
+          console.error("Data fetch error:", res.data.error);
+        }
+      })
+      .catch(err => console.error("Error fetching users:", err));
     }
   };
 
@@ -119,47 +128,71 @@ export default function BasicTableOne() {
     fetchUsers();
 
     const interval = setInterval(() => {
-      const role = getCurrentUserRole();
-      setCurrentUserRole(role);
-    }, 1000);
+      fetchUsers(); 
+    }, 5000);
 
-    return () => clearInterval(interval);
+    return () => clearInterval(interval);  
   }, []);
 
-  const handleEdit = (id: number, currentRole: string) => {
+  const handleEdit = (id: number, currentRoleName: string) => {
     setEditingUserId(id);
-    setNewRole(currentRole);
+    setNewRole(currentRoleName);
   };
 
   const handleSave = (id: number) => {
     const token = localStorage.getItem("jwtToken");
 
+    const userToUpdate = users.find((user) => user.id === id);
+    if (!userToUpdate) return;
+  
+    if (userToUpdate.role.name === newRole) {
+      setEditingUserId(null);
+      return;
+    }
+
     axios.put(
       `http://localhost:8000/users/${id}/role`,
       { role: newRole },
       {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       }
     )
-      .then(() => {
-        setUsers(prev => prev.map(user =>
-          user.id === id ? { ...user, role: newRole as User["role"] } : user
-        ));
-        setEditingUserId(null);
+      .then((res) => {
+        if (res.data.success) {
+          const updatedUser = res.data.user;
+  
+          setUsers(prevUsers =>
+            prevUsers.map(user =>
+              user.id === updatedUser.id
+                ? {
+                    ...user,
+                    role: {
+                      id: updatedUser.role_id,
+                      name: updatedUser.role_name
+                    }
+                  }
+                : user
+            )
+          );
+          setEditingUserId(null);  
+        } else {
+          console.error("Error updating role:", res.data.error);
+        }
       })
-      .catch(err => console.error("Error updating role:", err));
+      .catch(err => {
+        console.error("Error updating role:", err);
+        setEditingUserId(null);
+      });
   };
-
+  
   const handleCreate = () => {
     const token = localStorage.getItem("jwtToken");
-
+  
     if (!firstName || !lastName || !email || !password || !role) {
       alert("Please fill in all fields.");
       return;
     }
-
+  
     axios.post(
       "http://localhost:8000/users",
       {
@@ -176,18 +209,35 @@ export default function BasicTableOne() {
         },
       }
     )
-      .then(() => {
-        fetchUsers();
-        setFirstName("");
-        setLastName("");
-        setEmail("");
-        setPassword(""); 
-        setPhone("");
-        setRole("guest");
+      .then((res) => {
+        if (res.data.success) {
+          const newUser: User = {
+            id: res.data.user.id,
+            firstName: res.data.user.first_name,
+            lastName: res.data.user.last_name,
+            role: res.data.user.role,
+            phone: res.data.user.phone,
+          };
+  
+          setUsers(prevUsers => [...prevUsers, newUser]);
+  
+          // Shto një setTimeout për të siguruar që React të përditësojë të dhënat
+          setTimeout(() => {
+            setFirstName(""); // Pastrimi i fushës
+            setLastName("");  // Pastrimi i fushës
+            setEmail("");     // Pastrimi i fushës
+            setPassword("");  // Pastrimi i fushës
+            setPhone("");     // Pastrimi i fushës
+            setRole("guest"); // Pastrimi i fushës me vlerën default
+          }, 500);  // Mund ta rregulloni këtë vlerë për të parë nëse kjo ndihmon
+        }
       })
-      .catch(err => console.error("Error creating user:", err.response?.data || err.message));
+      .catch((err) => {
+        console.error("Error creating user:", err.response?.data || err.message);
+      });
   };
-
+  
+  
   const filteredUsers = users.filter((user) =>
     `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -202,7 +252,7 @@ export default function BasicTableOne() {
           onChange={(e) => setSearchTerm(e.target.value)}
         />
       </div>
-
+  
       {currentUserRole === "admin" && (
         <div className="p-4 flex gap-4 flex-wrap items-end">
           <div className="w-1/4">
@@ -220,12 +270,12 @@ export default function BasicTableOne() {
           <div className="w-1/4">
             <Input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
-
+  
           <div className="w-1/4">
             <select
               className="border px-2 py-1 rounded w-full"
               value={role}
-              onChange={(e) => setRole(e.target.value as "admin" | "guest" | "cleaner")}
+              onChange={(e) => setRole(e.target.value as Role["name"])}
             >
               <option value="admin">admin</option>
               <option value="cleaner">cleaner</option>
@@ -235,7 +285,7 @@ export default function BasicTableOne() {
           <Button onClick={handleCreate}>Create</Button>
         </div>
       )}
-
+  
       <div className="max-w-full overflow-x-auto">
         <Table>
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
@@ -248,7 +298,7 @@ export default function BasicTableOne() {
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Delete</TableCell>
             </TableRow>
           </TableHeader>
-
+  
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
             {filteredUsers.map((user) => (
               <TableRow key={user.id}>
@@ -267,7 +317,7 @@ export default function BasicTableOne() {
                       <option value="guest">guest</option>
                     </select>
                   ) : (
-                    user.role
+                    user.role.name
                   )}
                 </TableCell>
                 <TableCell className="px-5 py-4 text-start">
@@ -275,15 +325,18 @@ export default function BasicTableOne() {
                     editingUserId === user.id ? (
                       <Button onClick={() => handleSave(user.id)}>Save</Button>
                     ) : (
-                      <Button onClick={() => handleEdit(user.id, user.role)}>Edit</Button>
+                      <Button onClick={() => handleEdit(user.id, user.role.name)}>Edit</Button>
                     )
                   )}
                 </TableCell>
                 <TableCell className="px-5 py-4 text-start">
-                  {currentUserRole === "admin" && (
-                    <Button onClick={() => handleDelete(user.id)} className="text-sm px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600">
-                      Delete
-                    </Button>
+                      {currentUserRole === "admin" && (
+                      <Button
+                        onClick={() => handleDelete(user.id)}
+                        className="text-sm px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600"
+                      >
+                        Delete
+                      </Button>
                   )}
                 </TableCell>
               </TableRow>
@@ -292,5 +345,5 @@ export default function BasicTableOne() {
         </Table>
       </div>
     </div>
-  );
+  );  
 }
