@@ -413,6 +413,11 @@ app.put('/editProfile', authenticateJWT, async (req, res) => {
 // Get all rooms
 app.get("/rooms", authenticateJWT, async (req, res) => {
   try {
+
+    if (req.user.role === "guest") {
+      return res.status(403).json({ success: false, message: "Guests are not allowed to view rooms." });
+    }
+    
     const pool = await poolPromise;
     const result = await pool.request()
       .query("SELECT * FROM HotelManagement.dbo.rooms");
