@@ -25,6 +25,19 @@ interface Room {
   maintenance_notes: string | null;
 }
 
+const parseJwt = (token: string) => {
+  const base64Url = token.split('.')[1]; // Pjesa e dytë e tokenit (payload)
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/'); // Konvertoni në formatin standard të Base64
+  const jsonPayload = decodeURIComponent(
+    atob(base64) // Shndërro në string
+      .split('') 
+      .map((c) => `%${('00' + c.charCodeAt(0).toString(16)).slice(-2)}`)
+      .join('')
+  );
+
+  return JSON.parse(jsonPayload); // Kthe payload-in si objekt
+};
+
 export default function RoomTable() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -37,20 +50,33 @@ export default function RoomTable() {
     status: "Available",
     maintenance_notes: "",
   });
+  const [userRole, setUserRole] = useState<string | null>(null); // Variabël për të ruajtur rolin e përdoruesit
 
   const fetchRooms = () => {
     const token = localStorage.getItem("jwtToken");
 
-    axios
-      .get("http://localhost:8000/rooms", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then((res) => {
-        if (res.data.success) {
-          setRooms(res.data.data);
-        }
-      })
-      .catch((err) => console.error("Gabim gjatë marrjes së dhomave:", err));
+    if (token) {
+      const decodedToken = parseJwt(token);
+      const userRole = decodedToken.role; // Supozojmë që roli është në payload si "role"
+      setUserRole(userRole); // Ruajmë rolin në shtetin e komponentës
+
+      if (userRole !== "admin") {
+        // Fshi dhomat për përdoruesit që nuk janë admin
+        setRooms([]);
+        return;
+      }
+
+      axios
+        .get("http://localhost:8000/rooms", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        .then((res) => {
+          if (res.data.success) {
+            setRooms(res.data.data);
+          }
+        })
+        .catch((err) => console.error("Gabim gjatë marrjes së dhomave:", err));
+    }
   };
 
   useEffect(() => {
@@ -140,6 +166,11 @@ export default function RoomTable() {
     room.room_number.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Nëse roli është 'guest', mos shfaq dhomat fare
+  if (userRole === "guest") {
+    return <div>You do not have permission to view this page.</div>;
+  }
+
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="p-4 space-y-4">
@@ -223,102 +254,52 @@ export default function RoomTable() {
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">ID</TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Room Number</TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Category</TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Price (€)</TableCell>
+              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Price</TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Status</TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Maintenance Notes</TableCell>
               <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Actions</TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Delete</TableCell>
             </TableRow>
           </TableHeader>
 
-          <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+          <TableBody>
             {filteredRooms.map((room, index) => (
               <TableRow key={room.id}>
-                <TableCell className="px-5 py-4 text-start">{room.id}</TableCell>
-                <TableCell className="px-5 py-4 text-start">{room.room_number}</TableCell>
-
-                {editIndex === index ? (
-                  <>
-                    <TableCell className="px-5 py-4 text-start">
-                      <Select
-                        value={editedRoom.category}
-                        onChange={(e) =>
-                          setEditedRoom((prev) => ({
-                            ...prev,
-                            category: e.target.value as Room["category"],
-                          }))
-                        }
+                <TableCell>{room.id}</TableCell>
+                <TableCell>{room.room_number}</TableCell>
+                <TableCell>{room.category}</TableCell>
+                <TableCell>{room.price}</TableCell>
+                <TableCell>{room.status}</TableCell>
+                <TableCell>
+                  {editIndex === index ? (
+                    <div className="flex gap-2">
+                      <button
+                        className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+                        onClick={() => handleEditSaveClick(index, room)}
                       >
-                        <option value="Standard">Standard</option>
-                        <option value="Deluxe">Deluxe</option>
-                        <option value="Suite">Suite</option>
-                      </Select>
-                    </TableCell>
-
-                    <TableCell className="px-5 py-4 text-start">{room.price.toFixed(2)}</TableCell>
-
-                    <TableCell className="px-5 py-4 text-start">
-                      <Select
-                        value={editedRoom.status}
-                        onChange={(e) =>
-                          setEditedRoom((prev) => ({
-                            ...prev,
-                            status: e.target.value as Room["status"],
-                          }))
-                        }
+                        Save
+                      </button>
+                      <button
+                        className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                        onClick={() => setEditIndex(null)}
                       >
-                        <option value="Available">Available</option>
-                        <option value="Occupied">Occupied</option>
-                        <option value="Maintenance">Maintenance</option>
-                      </Select>
-                    </TableCell>
-
-                    <TableCell className="px-5 py-4 text-start">
-                      {editedRoom.status === "Maintenance" ? (
-                        <Input
-                          placeholder="Shkruani arsyen e mirëmbajtjes..."
-                          value={editedRoom.maintenance_notes || ""}
-                          onChange={(e) =>
-                            setEditedRoom((prev) => ({
-                              ...prev,
-                              maintenance_notes: e.target.value,
-                            }))
-                          }
-                        />
-                      ) : (
-                        room.maintenance_notes || "-"
-                      )}
-                    </TableCell>
-                  </>
-                ) : (
-                  <>
-                    <TableCell className="px-5 py-4 text-start">{room.category}</TableCell>
-                    <TableCell className="px-5 py-4 text-start">{room.price.toFixed(2)}</TableCell>
-                    <TableCell className="px-5 py-4 text-start">{room.status}</TableCell>
-                    <TableCell className="px-5 py-4 text-start">{room.maintenance_notes || "-"}</TableCell>
-                  </>
-                )}
-
-                <TableCell className="px-5 py-4 text-start">
-                  <button
-                    className={`text-sm px-3 py-1 rounded text-white ${
-                      editIndex === index
-                        ? "bg-green-500 hover:bg-green-600"
-                        : "bg-blue-500 hover:bg-blue-600"
-                    }`}
-                    onClick={() => handleEditSaveClick(index, room)}
-                  >
-                    {editIndex === index ? "Save" : "Edit"}
-                  </button>
-                </TableCell>
-
-                <TableCell className="px-5 py-4 text-start">
-                  <button
-                    className="text-sm px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600"
-                    onClick={() => handleDeleteRoom(room.id)}
-                  >
-                    Delete
-                  </button>
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600"
+                        onClick={() => handleEditSaveClick(index, room)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+                        onClick={() => handleDeleteRoom(room.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -328,4 +309,3 @@ export default function RoomTable() {
     </div>
   );
 }
-
