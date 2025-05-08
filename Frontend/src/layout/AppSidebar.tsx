@@ -28,7 +28,7 @@ const navItems: NavItem[] = [
     path: "/",
   },
   {
-    icon: <Bookmark className="w-5 h-5 stroke-[1.5]" />, 
+    icon: <Bookmark className="w-5 h-5 stroke-[1.5]" />,
     name: "Bookings",
     path: "/Bookings/Bookings",
     parent: "Dashboard",
@@ -40,18 +40,17 @@ const navItems: NavItem[] = [
     parent: "Dashboard",
   },
   {
-    icon: <DollarSign className="w-5 h-5 stroke-[1.2]" />, 
+    icon: <DollarSign className="w-5 h-5 stroke-[1.2]" />,
     name: "Revenue",
     path: "/Revenue",
     parent: "Dashboard",
   },
   {
-    icon: <Repeat className="w-5 h-5 stroke-[1.2]" />, 
+    icon: <Repeat className="w-5 h-5 stroke-[1.2]" />,
     name: "Check-ins/outs",
     path: "/Checkins",
     parent: "Dashboard",
   },
-  
   {
     icon: <CalenderIcon />,
     name: "Calendar",
@@ -62,32 +61,18 @@ const navItems: NavItem[] = [
     name: "User Profile",
     path: "/profile",
   },
-
-  // {
-  //   name: "Forms",
-  //   icon: <ListIcon />,
-  //   subItems: [{ name: "Form Elements", path: "/form-elements", pro: false }],
-  // },
-
   {
     name: "Staff Management",
     icon: <TableIcon />,
     subItems: [{ name: "User List", path: "/basic-tables", pro: false }],
   },
-
-  // {
-  //   name: "Pages",
-  //   icon: <PageIcon />,
-  //   subItems: [
-  //     { name: "Blank Page", path: "/blank", pro: false },
-  //     { name: "404 Error", path: "/error-404", pro: false },
-  //   ],
-  // },
 ];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
+
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main";
@@ -100,6 +85,22 @@ const AppSidebar: React.FC = () => {
     (path: string) => location.pathname === path,
     [location.pathname]
   );
+
+  useEffect(() => {
+    const token = localStorage.getItem("jwtToken");
+    if (token) {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map((c) => `%${('00' + c.charCodeAt(0).toString(16)).slice(-2)}`)
+          .join('')
+      );
+      const decodedToken = JSON.parse(jsonPayload);
+      setUserRole(decodedToken.role);
+    }
+  }, []);
 
   useEffect(() => {
     let submenuMatched = false;
@@ -246,6 +247,11 @@ const AppSidebar: React.FC = () => {
       ))}
     </ul>
   );
+  
+const filteredNavItems = navItems.filter((item) => {
+  const hiddenForGuest = ["Revenue", "Room Status", "Check-ins/outs", "Dashboard", "Calendar", "Staff Management"];
+  return userRole === "guest" ? !hiddenForGuest.includes(item.name) : true;
+});
 
   return (
     <aside
@@ -270,11 +276,12 @@ const AppSidebar: React.FC = () => {
         <Link to="/">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
-                 <img className="block dark:hidden"
-              src="/images/logo/logo.svg"
-              alt="Logo"
-              width={120}
-              height={40}
+              <img
+                className="block dark:hidden"
+                src="/images/logo/logo.svg"
+                alt="Logo"
+                width={120}
+                height={40}
               />
               <img
                 className="hidden dark:block"
@@ -286,9 +293,9 @@ const AppSidebar: React.FC = () => {
             </>
           ) : (
             <img
-            src="/images/logo/logo-icon.svg"
-            alt="Logo"
-            className="w-[36px] h-auto"
+              src="/images/logo/logo-icon.svg"
+              alt="Logo"
+              className="w-[36px] h-auto"
             />
           )}
         </Link>
@@ -308,7 +315,7 @@ const AppSidebar: React.FC = () => {
                   <HorizontaLDots className="size-6" />
                 )}
               </h2>
-              {renderMenuItems(navItems)}
+              {renderMenuItems(filteredNavItems)}
             </div>
           </div>
         </nav>
