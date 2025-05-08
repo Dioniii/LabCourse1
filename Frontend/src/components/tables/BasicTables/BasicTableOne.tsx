@@ -129,7 +129,7 @@ export default function BasicTableOne() {
 
     const interval = setInterval(() => {
       fetchUsers(); 
-    }, 5000);
+    },);
 
     return () => clearInterval(interval);  
   }, []);
@@ -220,23 +220,19 @@ export default function BasicTableOne() {
           };
   
           setUsers(prevUsers => [...prevUsers, newUser]);
-  
-          // Shto një setTimeout për të siguruar që React të përditësojë të dhënat
-          setTimeout(() => {
-            setFirstName(""); // Pastrimi i fushës
-            setLastName("");  // Pastrimi i fushës
-            setEmail("");     // Pastrimi i fushës
-            setPassword("");  // Pastrimi i fushës
-            setPhone("");     // Pastrimi i fushës
-            setRole("guest"); // Pastrimi i fushës me vlerën default
-          }, 500);  // Mund ta rregulloni këtë vlerë për të parë nëse kjo ndihmon
+
+          setFirstName(""); 
+          setLastName(""); 
+          setEmail("");     
+          setPassword("");  
+          setPhone("");     
+          setRole("guest"); 
         }
       })
       .catch((err) => {
         console.error("Error creating user:", err.response?.data || err.message);
       });
-  };
-  
+  };  
   
   const filteredUsers = users.filter((user) =>
     `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())

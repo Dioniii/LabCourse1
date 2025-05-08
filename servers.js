@@ -295,7 +295,21 @@ app.post("/users", authenticateJWT, async (req, res) => {
       .input("user_id", sql.Int, newUserId)
       .query(`INSERT INTO HotelManagement.dbo.${roleTableMap[role]} (user_id) VALUES (@user_id)`);
 
-    res.status(201).json({ success: true, message: "User created successfully" });
+      res.status(201).json({
+        success: true,
+        message: "User created successfully",
+        user: {
+          id: newUserId,
+          first_name,
+          last_name,
+          email,
+          phone,
+          role: {
+            id: roleId,
+            name: role
+          }
+        }
+      });      
 
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
