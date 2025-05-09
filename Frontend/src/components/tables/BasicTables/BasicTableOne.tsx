@@ -8,16 +8,11 @@ import {
   TableHeader,
   TableRow,
 } from "../../ui/table";
-
-const Button = ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-  <button className="bg-blue-600 text-white px-4 py-2 rounded" {...props}>
-    {children}
-  </button>
-);
-
-const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
-  <input className="border px-2 py-1 rounded w-full" {...props} />
-);
+import { useModal } from "../../../hooks/useModal";
+import { Modal } from "../../ui/modal";
+import Button from "../../ui/button/Button";
+import Input from "../../form/input/InputField";
+import Label from "../../form/Label";
 
 interface Role {
   id: number;
@@ -53,10 +48,9 @@ export default function BasicTableOne() {
   const [users, setUsers] = useState<User[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [newRole, setNewRole] = useState<string>("");
-
   const [searchTerm, setSearchTerm] = useState<string>("");
-
   const [currentUserRole, setCurrentUserRole] = useState<"admin" | "guest" | "cleaner" | null>(null);
+  const { isOpen, openModal, closeModal } = useModal();
 
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
@@ -221,18 +215,22 @@ export default function BasicTableOne() {
   
           setUsers(prevUsers => [...prevUsers, newUser]);
 
-          setFirstName(""); 
-          setLastName(""); 
-          setEmail("");     
-          setPassword("");  
-          setPhone("");     
-          setRole("guest"); 
+          // Reset form fields
+          setFirstName("");
+          setLastName("");
+          setEmail("");
+          setPassword("");
+          setPhone("");
+          setRole("guest");
+          
+          // Close modal
+          closeModal();
         }
       })
       .catch((err) => {
         console.error("Error creating user:", err.response?.data || err.message);
       });
-  };  
+  };
   
   const filteredUsers = users.filter((user) =>
     `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
@@ -250,35 +248,8 @@ export default function BasicTableOne() {
       </div>
   
       {currentUserRole === "admin" && (
-        <div className="p-4 flex gap-4 flex-wrap items-end">
-          <div className="w-1/4">
-            <Input placeholder="First Name" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-          </div>
-          <div className="w-1/4">
-            <Input placeholder="Last Name" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-          </div>
-          <div className="w-1/4">
-            <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div className="w-1/4">
-            <Input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </div>
-          <div className="w-1/4">
-            <Input placeholder="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
-          </div>
-  
-          <div className="w-1/4">
-            <select
-              className="border px-2 py-1 rounded w-full"
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role["name"])}
-            >
-              <option value="admin">admin</option>
-              <option value="cleaner">cleaner</option>
-              <option value="guest">guest</option>
-            </select>
-          </div>
-          <Button onClick={handleCreate}>Create</Button>
+        <div className="p-4">
+          <Button onClick={openModal}>Create New User</Button>
         </div>
       )}
   
@@ -326,13 +297,13 @@ export default function BasicTableOne() {
                   )}
                 </TableCell>
                 <TableCell className="px-5 py-4 text-start">
-                      {currentUserRole === "admin" && (
-                      <Button
-                        onClick={() => handleDelete(user.id)}
-                        className="text-sm px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600"
-                      >
-                        Delete
-                      </Button>
+                  {currentUserRole === "admin" && (
+                    <Button
+                      onClick={() => handleDelete(user.id)}
+                      className="text-sm px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600"
+                    >
+                      Delete
+                    </Button>
                   )}
                 </TableCell>
               </TableRow>
@@ -340,6 +311,101 @@ export default function BasicTableOne() {
           </TableBody>
         </Table>
       </div>
+
+      <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] m-4">
+        <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
+          <div className="px-2 pr-14">
+            <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+              Create New User
+            </h4>
+            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
+              Fill in the details to create a new user account.
+            </p>
+          </div>
+          <form className="flex flex-col">
+            <div className="custom-scrollbar h-[300px] overflow-y-auto px-2 pb-3">
+              <div className="mt-7">
+                <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
+                  User Information
+                </h5>
+                <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+                  <div>
+                    <Label>First Name</Label>
+                    <Input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Enter first name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Last Name</Label>
+                    <Input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Enter last name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter email"
+                    />
+                  </div>
+                  <div>
+                    <Label>Password</Label>
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Enter password"
+                    />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <Input
+                      type="text"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+                  <div>
+                    <Label>Role</Label>
+                    <select
+                      className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                      value={role}
+                      onChange={(e) => setRole(e.target.value as Role["name"])}
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="cleaner">Cleaner</option>
+                      <option value="guest">Guest</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
+              <button
+                onClick={closeModal}
+                className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreate}
+                className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
+              >
+                Create User
+              </button>
+            </div>
+          </form>
+        </div>
+      </Modal>
     </div>
   );  
 }
