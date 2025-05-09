@@ -250,7 +250,16 @@ const AppSidebar: React.FC = () => {
   
 const filteredNavItems = navItems.filter((item) => {
   const hiddenForGuest = ["Revenue", "Room Status", "Check-ins/outs", "Dashboard", "Calendar", "Staff Management"];
-  return userRole === "guest" ? !hiddenForGuest.includes(item.name) : true;
+  const hiddenForCleaner = ["Revenue", "Bookings", "Check-ins/outs", "Calendar", "Dashboard", "Staff Management"];
+  if (userRole === "guest") {
+    return !hiddenForGuest.includes(item.name);
+  }
+
+  if (userRole === "cleaner") {
+    return !hiddenForCleaner.includes(item.name);
+  }
+
+  return true;
 });
 
   return (
