@@ -328,14 +328,6 @@ app.delete("/users/:id", authenticateJWT, async (req, res) => {
       return res.status(403).json({ success: false, message: "Only admin can delete users" });
     }
 
-    const userRole = await getUserRoleNameById(pool, id);
-
-    if (userRole && roleTableMap[userRole]) {
-      await pool.request()
-        .input("user_id", sql.Int, id)
-        .query(`DELETE FROM HotelManagement.dbo.${roleTableMap[userRole]} WHERE user_id = @user_id`);
-    }
-
     await pool.request()
       .input("id", sql.Int, id)
       .query("DELETE FROM HotelManagement.dbo.users WHERE id = @id");
@@ -346,6 +338,7 @@ app.delete("/users/:id", authenticateJWT, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
 
 app.get('/me', authenticateJWT, async (req, res) => {
   try {
