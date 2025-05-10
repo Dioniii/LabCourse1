@@ -52,11 +52,10 @@ export default function BasicTableOne() {
   const [newRole, setNewRole] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentUserRole, setCurrentUserRole] = useState<"admin" | "guest" | "cleaner" | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
   const { isOpen, openModal, closeModal } = useModal();
   const { isOpen: isEditModalOpen, openModal: openEditModal, closeModal: closeEditModal } = useModal();
   const { isOpen: isDeleteModalOpen, openModal: openDeleteModal, closeModal: closeDeleteModal } = useModal();
-  const { isOpen: isAlertOpen, openModal: openAlert, closeModal: closeAlert } = useModal();
-  const [alertMessage, setAlertMessage] = useState<string>("");
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const [firstName, setFirstName] = useState<string>("");
@@ -110,6 +109,18 @@ export default function BasicTableOne() {
     }
   };
 
+  const getCurrentUserId = (): number | null => {
+    const token = localStorage.getItem("jwtToken");
+    if (!token) return null;
+
+    try {
+      const decoded = jwtDecode<DecodedToken>(token);
+      return decoded.id;
+    } catch {
+      return null;
+    }
+  };
+
   const fetchUsers = () => {
     const token = localStorage.getItem("jwtToken");
   
@@ -140,6 +151,7 @@ export default function BasicTableOne() {
 
   useEffect(() => {
     setCurrentUserRole(getCurrentUserRole());
+    setCurrentUserId(getCurrentUserId());
     fetchUsers();
 
     const interval = setInterval(() => {
@@ -160,11 +172,6 @@ export default function BasicTableOne() {
     setEmail(userToEdit.email || "");
     setPhone(userToEdit.phone || "");
     openEditModal();
-  };
-
-  const showAlert = (message: string) => {
-    setAlertMessage(message);
-    openAlert();
   };
 
   const handleSave = (id: number) => {
@@ -326,12 +333,12 @@ export default function BasicTableOne() {
                 <TableCell className="px-5 py-4 text-start">{user.lastName}</TableCell>
                 <TableCell className="px-5 py-4 text-start">{user.role.name}</TableCell>
                 <TableCell className="px-5 py-4 text-start">
-                  {currentUserRole === "admin" && (
+                  {currentUserRole === "admin" && user.id !== currentUserId && (
                     <Button onClick={() => handleEdit(user.id, user.role.name)}>Edit</Button>
                   )}
                 </TableCell>
                 <TableCell className="px-5 py-4 text-start">
-                  {currentUserRole === "admin" && (
+                  {currentUserRole === "admin" && user.id !== currentUserId && (
                     <Button
                       onClick={() => handleDelete(user.id)}
                       className="text-sm px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600"
@@ -549,27 +556,6 @@ export default function BasicTableOne() {
               className="flex w-full justify-center rounded-lg bg-red-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-600 sm:w-auto"
             >
               Delete User
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      <Modal isOpen={isAlertOpen} onClose={closeAlert} className="max-w-[500px] m-4">
-        <div className="no-scrollbar relative w-full max-w-[500px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
-          <div className="px-2 pr-14">
-            <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-              Required Fields
-            </h4>
-            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
-              {alertMessage}
-            </p>
-          </div>
-          <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
-            <button
-              onClick={closeAlert}
-              className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
-            >
-              OK
             </button>
           </div>
         </div>
