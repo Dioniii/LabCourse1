@@ -37,7 +37,7 @@ app.get("/users", authenticateJWT, async (req, res) => {
     const pool = await poolPromise;
 
     const result = await pool.request().query(`
-      SELECT u.id, u.first_name, u.last_name, u.phone, r.id AS role_id, r.name AS role_name
+      SELECT u.id, u.first_name, u.last_name, u.phone, u.email, r.id AS role_id, r.name AS role_name
       FROM HotelManagement.dbo.users u
       JOIN HotelManagement.dbo.roles r ON u.role_id = r.id
     `);
@@ -47,6 +47,7 @@ app.get("/users", authenticateJWT, async (req, res) => {
       first_name: user.first_name,
       last_name: user.last_name,
       phone: user.phone,
+      email: user.email,
       role: {
         id: user.role_id,
         name: user.role_name
@@ -534,5 +535,122 @@ app.delete("/rooms/:id", authenticateJWT, async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ADMIN UPDATE USER
+app.put("/users/:id", authenticateJWT, async (req, res) => {
+  const userId = req.params.id;
+  const { first_name, last_name, email, phone, role } = req.body;
+  const validRoles = Object.keys(roleTableMap);
+
+  if (!first_name || !last_name || !email || !role) {
+    return res.status(400).json({ success: false, message: "All fields except phone are required" });
+  }
+
+  if (!validRoles.includes(role)) {
+    return res.status(400).json({ success: false, message: "Invalid role" });
+  }
+
+  try {
+    const pool = await poolPromise;
+
+    const currentUserRole = await getUserRoleNameById(pool, req.user.id);
+    if (currentUserRole !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admin can update users" });
+    }
+
+    const roleId = await getRoleIdByName(pool, role);
+    if (!roleId) {
+      return res.status(400).json({ success: false, message: "Role not found" });
+    }
+
+    // Get the user's current role
+    const currentUser = await pool.request()
+      .input("userId", sql.Int, userId)
+      .query("SELECT role_id FROM HotelManagement.dbo.users WHERE id = @userId");
+
+    if (currentUser.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    const currentRoleId = currentUser.recordset[0].role_id;
+
+    // Update user information
+    await pool.request()
+      .input("userId", sql.Int, userId)
+      .input("first_name", sql.VarChar, first_name)
+      .input("last_name", sql.VarChar, last_name)
+      .input("email", sql.VarChar, email)
+      .input("phone", sql.VarChar, phone || null)
+      .input("role_id", sql.Int, roleId)
+      .query(`
+        UPDATE HotelManagement.dbo.users 
+        SET first_name = @first_name,
+            last_name = @last_name,
+            email = @email,
+            phone = @phone,
+            role_id = @role_id
+        WHERE id = @userId
+      `);
+
+    // If role has changed, update the role-specific tables
+    if (currentRoleId !== roleId) {
+      // Get the old role name
+      const oldRoleResult = await pool.request()
+        .input("roleId", sql.Int, currentRoleId)
+        .query("SELECT name FROM HotelManagement.dbo.roles WHERE id = @roleId");
+      
+      const oldRoleName = oldRoleResult.recordset[0]?.name;
+
+      // Remove from old role table if it exists
+      if (oldRoleName && roleTableMap[oldRoleName]) {
+        await pool.request()
+          .input("userId", sql.Int, userId)
+          .query(`DELETE FROM HotelManagement.dbo.${roleTableMap[oldRoleName]} WHERE user_id = @userId`);
+      }
+
+      // Add to new role table
+      await pool.request()
+        .input("userId", sql.Int, userId)
+        .query(`INSERT INTO HotelManagement.dbo.${roleTableMap[role]} (user_id) VALUES (@userId)`);
+    }
+
+    // Get the updated user data
+    const updatedUser = await pool.request()
+      .input("userId", sql.Int, userId)
+      .query(`
+        SELECT 
+          u.id,
+          u.first_name,
+          u.last_name,
+          u.email,
+          u.phone,
+          r.id as role_id,
+          r.name as role_name
+        FROM HotelManagement.dbo.users u
+        JOIN HotelManagement.dbo.roles r ON u.role_id = r.id
+        WHERE u.id = @userId
+      `);
+
+    res.json({
+      success: true,
+      message: "User updated successfully",
+      user: {
+        id: updatedUser.recordset[0].id,
+        first_name: updatedUser.recordset[0].first_name,
+        last_name: updatedUser.recordset[0].last_name,
+        email: updatedUser.recordset[0].email,
+        phone: updatedUser.recordset[0].phone,
+        role: {
+          id: updatedUser.recordset[0].role_id,
+          name: updatedUser.recordset[0].role_name
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error("Error updating user:", error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });

@@ -25,6 +25,7 @@ interface User {
   lastName: string;
   role: Role;
   phone?: string;
+  email?: string;
 }
 
 interface RawUser {
@@ -33,6 +34,7 @@ interface RawUser {
   last_name: string;
   role: Role;
   phone?: string;
+  email?: string;
 }
 
 interface DecodedToken {
@@ -51,6 +53,11 @@ export default function BasicTableOne() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [currentUserRole, setCurrentUserRole] = useState<"admin" | "guest" | "cleaner" | null>(null);
   const { isOpen, openModal, closeModal } = useModal();
+  const { isOpen: isEditModalOpen, openModal: openEditModal, closeModal: closeEditModal } = useModal();
+  const { isOpen: isDeleteModalOpen, openModal: openDeleteModal, closeModal: closeDeleteModal } = useModal();
+  const { isOpen: isAlertOpen, openModal: openAlert, closeModal: closeAlert } = useModal();
+  const [alertMessage, setAlertMessage] = useState<string>("");
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
@@ -60,18 +67,31 @@ export default function BasicTableOne() {
   const [phone, setPhone] = useState<string>("");
 
   const handleDelete = (id: number) => {
+    const user = users.find(u => u.id === id);
+    if (user) {
+      setUserToDelete(user);
+      openDeleteModal();
+    }
+  };
+
+  const confirmDelete = () => {
+    if (!userToDelete) return;
+
     const token = localStorage.getItem("jwtToken");
-    if (!window.confirm("Are you sure you want to delete this user?")) return;
-  
-    axios.delete(`http://localhost:8000/users/${id}`, {
+    axios.delete(`http://localhost:8000/users/${userToDelete.id}`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     })
       .then(() => {
-        fetchUsers(); // Refresh the users list after delete
+        fetchUsers();
+        closeDeleteModal();
+        setUserToDelete(null);
       })
-      .catch(err => console.error("Error deleting user:", err));
+      .catch(err => {
+        console.error("Error deleting user:", err);
+        alert("Failed to delete user: " + (err.response?.data?.message || err.message));
+      });
   };
 
   const getCurrentUserRole = (): "admin" | "guest" | "cleaner" | null => {
@@ -107,6 +127,7 @@ export default function BasicTableOne() {
             lastName: user.last_name,
             role: user.role,
             phone: user.phone,
+            email: user.email
           }));
           setUsers(formattedUsers);
         } else {
@@ -129,8 +150,21 @@ export default function BasicTableOne() {
   }, []);
 
   const handleEdit = (id: number, currentRoleName: string) => {
+    const userToEdit = users.find(user => user.id === id);
+    if (!userToEdit) return;
+
     setEditingUserId(id);
     setNewRole(currentRoleName);
+    setFirstName(userToEdit.firstName);
+    setLastName(userToEdit.lastName);
+    setEmail(userToEdit.email || "");
+    setPhone(userToEdit.phone || "");
+    openEditModal();
+  };
+
+  const showAlert = (message: string) => {
+    setAlertMessage(message);
+    openAlert();
   };
 
   const handleSave = (id: number) => {
@@ -139,43 +173,61 @@ export default function BasicTableOne() {
     const userToUpdate = users.find((user) => user.id === id);
     if (!userToUpdate) return;
   
-    if (userToUpdate.role.name === newRole) {
-      setEditingUserId(null);
+    if (!firstName || !lastName || !email || !newRole) {
+      alert("Please fill in all required fields.");
       return;
     }
 
     axios.put(
-      `http://localhost:8000/users/${id}/role`,
-      { role: newRole },
+      `http://localhost:8000/users/${id}`,
+      {
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone: phone,
+        role: newRole,
+      },
       {
         headers: { Authorization: `Bearer ${token}` },
       }
     )
       .then((res) => {
         if (res.data.success) {
-          const updatedUser = res.data.user;
-  
+          // Update the users list with the new data
           setUsers(prevUsers =>
             prevUsers.map(user =>
-              user.id === updatedUser.id
+              user.id === id
                 ? {
-                    ...user,
+                    id: id,
+                    firstName: res.data.user.first_name,
+                    lastName: res.data.user.last_name,
+                    email: res.data.user.email,
+                    phone: res.data.user.phone,
                     role: {
-                      id: updatedUser.role_id,
-                      name: updatedUser.role_name
+                      id: res.data.user.role.id,
+                      name: res.data.user.role.name
                     }
                   }
                 : user
             )
           );
-          setEditingUserId(null);  
+          
+          // Reset form state
+          setFirstName("");
+          setLastName("");
+          setEmail("");
+          setPhone("");
+          setNewRole("");
+          setEditingUserId(null);
+          closeEditModal();
         } else {
-          console.error("Error updating role:", res.data.error);
+          console.error("Error updating user:", res.data.error);
         }
       })
       .catch(err => {
-        console.error("Error updating role:", err);
+        console.error("Error updating user:", err);
         setEditingUserId(null);
+        closeEditModal();
       });
   };
   
@@ -231,7 +283,7 @@ export default function BasicTableOne() {
         console.error("Error creating user:", err.response?.data || err.message);
       });
   };
-  
+
   const filteredUsers = users.filter((user) =>
     `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -240,7 +292,7 @@ export default function BasicTableOne() {
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="p-4">
         <Input
-          placeholder="Kërko përdorues..."
+          placeholder="Search Users..."
           className="w-1/3"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
@@ -272,28 +324,10 @@ export default function BasicTableOne() {
                 <TableCell className="px-5 py-4 text-start">{user.id}</TableCell>
                 <TableCell className="px-5 py-4 text-start">{user.firstName}</TableCell>
                 <TableCell className="px-5 py-4 text-start">{user.lastName}</TableCell>
-                <TableCell className="px-5 py-4 text-start">
-                  {editingUserId === user.id ? (
-                    <select
-                      className="border px-2 py-1 rounded"
-                      value={newRole}
-                      onChange={(e) => setNewRole(e.target.value)}
-                    >
-                      <option value="admin">admin</option>
-                      <option value="cleaner">cleaner</option>
-                      <option value="guest">guest</option>
-                    </select>
-                  ) : (
-                    user.role.name
-                  )}
-                </TableCell>
+                <TableCell className="px-5 py-4 text-start">{user.role.name}</TableCell>
                 <TableCell className="px-5 py-4 text-start">
                   {currentUserRole === "admin" && (
-                    editingUserId === user.id ? (
-                      <Button onClick={() => handleSave(user.id)}>Save</Button>
-                    ) : (
-                      <Button onClick={() => handleEdit(user.id, user.role.name)}>Edit</Button>
-                    )
+                    <Button onClick={() => handleEdit(user.id, user.role.name)}>Edit</Button>
                   )}
                 </TableCell>
                 <TableCell className="px-5 py-4 text-start">
@@ -404,6 +438,140 @@ export default function BasicTableOne() {
               </button>
             </div>
           </form>
+        </div>
+      </Modal>
+
+      <Modal isOpen={isEditModalOpen} onClose={closeEditModal} className="max-w-[700px] m-4">
+        <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
+          <div className="px-2 pr-14">
+            <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+              Edit User
+            </h4>
+            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
+              Update the user's information.
+            </p>
+          </div>
+          <form className="flex flex-col">
+            <div className="custom-scrollbar h-[300px] overflow-y-auto px-2 pb-3">
+              <div className="mt-7">
+                <h5 className="mb-5 text-lg font-medium text-gray-800 dark:text-white/90 lg:mb-6">
+                  User Information
+                </h5>
+                <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
+                  <div>
+                    <Label>First Name</Label>
+                    <Input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Enter first name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Last Name</Label>
+                    <Input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Enter last name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter email"
+                    />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <Input
+                      type="text"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+                  <div>
+                    <Label>Role</Label>
+                    <select
+                      className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                      value={newRole}
+                      onChange={(e) => setNewRole(e.target.value)}
+                    >
+                      <option value="admin">Admin</option>
+                      <option value="cleaner">Cleaner</option>
+                      <option value="guest">Guest</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
+              <button
+                onClick={closeEditModal}
+                className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleSave(editingUserId!)}
+                className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
+              >
+                Save Changes
+              </button>
+            </div>
+          </form>
+        </div>
+      </Modal>
+
+      <Modal isOpen={isDeleteModalOpen} onClose={closeDeleteModal} className="max-w-[500px] m-4">
+        <div className="no-scrollbar relative w-full max-w-[500px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
+          <div className="px-2 pr-14">
+            <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+              Delete User
+            </h4>
+            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
+              Are you sure you want to delete {userToDelete?.firstName} {userToDelete?.lastName}? This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
+            <button
+              onClick={closeDeleteModal}
+              className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDelete}
+              className="flex w-full justify-center rounded-lg bg-red-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-red-600 sm:w-auto"
+            >
+              Delete User
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={isAlertOpen} onClose={closeAlert} className="max-w-[500px] m-4">
+        <div className="no-scrollbar relative w-full max-w-[500px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
+          <div className="px-2 pr-14">
+            <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
+              Required Fields
+            </h4>
+            <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
+              {alertMessage}
+            </p>
+          </div>
+          <div className="flex items-center gap-3 px-2 mt-6 lg:justify-end">
+            <button
+              onClick={closeAlert}
+              className="flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
+            >
+              OK
+            </button>
+          </div>
         </div>
       </Modal>
     </div>
