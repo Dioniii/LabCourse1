@@ -439,23 +439,48 @@ app.get("/rooms", authenticateJWT, async (req, res) => {
 // Update room category and status
 app.put("/rooms/:id", authenticateJWT, async (req, res) => {
   const { id } = req.params;
-  const { category, status, maintenance_notes } = req.body;
+  const { category, status, maintenance_notes, price } = req.body;
 
   try {
     const pool = await poolPromise;
+
+    // First check if the room exists
+    const checkResult = await pool.request()
+      .input("id", sql.Int, id)
+      .query("SELECT * FROM HotelManagement.dbo.rooms WHERE id = @id");
+
+    if (checkResult.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: "Room not found" });
+    }
+
+    // Then update the room
     await pool.request()
-      .input("id", id)
-      .input("category", category)
-      .input("status", status)
-      .input("maintenance_notes", maintenance_notes)
+      .input("id", sql.Int, id)
+      .input("category", sql.VarChar, category)
+      .input("status", sql.VarChar, status)
+      .input("maintenance_notes", sql.VarChar, maintenance_notes)
+      .input("price", sql.Decimal(10, 2), price)
       .query(`
         UPDATE HotelManagement.dbo.rooms 
-        SET category = @category, status = @status, maintenance_notes = @maintenance_notes
+        SET category = @category, 
+            status = @status, 
+            maintenance_notes = @maintenance_notes,
+            price = @price
         WHERE id = @id
       `);
 
-    res.status(200).json({ success: true, message: "Room updated successfully" });
+    // Get the updated room data
+    const updatedRoom = await pool.request()
+      .input("id", sql.Int, id)
+      .query("SELECT * FROM HotelManagement.dbo.rooms WHERE id = @id");
+
+    res.status(200).json({ 
+      success: true, 
+      message: "Room updated successfully",
+      data: updatedRoom.recordset[0]
+    });
   } catch (error) {
+    console.error("Error updating room:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
