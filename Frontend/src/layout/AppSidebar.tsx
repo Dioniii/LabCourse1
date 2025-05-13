@@ -64,7 +64,11 @@ const navItems: NavItem[] = [
   {
     name: "Staff Management",
     icon: <TableIcon />,
-    subItems: [{ name: "User List", path: "/basic-tables", pro: false }],
+    subItems: [
+      { name: "Users List", path: "/basic-tables", pro: false },
+      { name: "Guests List", path: "/guests-list" },
+      { name: "Cleaners List", path: "/cleaners-list" }
+    ],
   },
 ];
 

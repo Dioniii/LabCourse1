@@ -296,62 +296,146 @@ export default function BasicTableOne() {
   );
 
   return (
-    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-      <div className="p-4">
-        <Input
+    <div className="space-y-6 p-6">
+      {/* Header Section */}
+      <div className="flex flex-col gap-2">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Staff Management</h2>
+        <p className="text-gray-600 dark:text-gray-400">Manage and monitor all staff users by role</p>
+      </div>
+
+      {/* User Statistics Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
+        <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Users</p>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{users.length}</h3>
+            </div>
+          <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900">
+            <svg className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+        </div>
+    </div>
+
+    <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Admins</p>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {users.filter(user => user.role.name === "admin").length}
+          </h3>
+        </div>
+        <div className="rounded-full bg-green-100 p-3 dark:bg-green-900">
+          <svg className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 2l3 6-3 2-3-2 3-6zm0 10c2 0 5 1 5 3v3H7v-3c0-2 3-3 5-3z" />
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Guests</p>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {users.filter(user => user.role.name === "guest").length}
+          </h3>
+        </div>
+        <div className="rounded-full bg-yellow-100 p-3 dark:bg-yellow-900">
+          <svg className="h-6 w-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5.121 17.804A9 9 0 0112 15c2.137 0 4.092.747 5.616 1.996M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+      </div>
+    </div>
+    
+    <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Cleaners</p>
+          <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {users.filter(user => user.role.name === "cleaner").length}
+          </h3>
+        </div>
+        <div className="rounded-full bg-red-100 p-3 dark:bg-red-900">
+          <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 3L5 17l-1 4 4-1L21 5l-2-2zM14 6l4 4" />
+          </svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div className="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+    <div className="p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="w-full sm:w-1/3">
+          <Input
           placeholder="Search Users..."
-          className="w-1/3"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-        />
-      </div>
-  
-      {currentUserRole === "admin" && (
-        <div className="p-4">
-          <Button onClick={openModal}>Create New User</Button>
+          />
         </div>
-      )}
-  
-      <div className="max-w-full overflow-x-auto">
-        <Table>
-          <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-            <TableRow>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">ID</TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">First Name</TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Last Name</TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Role</TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Action</TableCell>
-              <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Delete</TableCell>
-            </TableRow>
-          </TableHeader>
-  
-          <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {filteredUsers.map((user) => (
-              <TableRow key={user.id}>
-                <TableCell className="px-5 py-4 text-start">{user.id}</TableCell>
-                <TableCell className="px-5 py-4 text-start">{user.firstName}</TableCell>
-                <TableCell className="px-5 py-4 text-start">{user.lastName}</TableCell>
-                <TableCell className="px-5 py-4 text-start">{user.role.name}</TableCell>
-                <TableCell className="px-5 py-4 text-start">
-                  {currentUserRole === "admin" && user.id !== currentUserId && (
-                    <Button onClick={() => handleEdit(user.id, user.role.name)}>Edit</Button>
-                  )}
-                </TableCell>
-                <TableCell className="px-5 py-4 text-start">
-                  {currentUserRole === "admin" && user.id !== currentUserId && (
-                    <Button
-                      onClick={() => handleDelete(user.id)}
-                      className="text-sm px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600"
-                    >
-                      Delete
-                    </Button>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        {currentUserRole === "admin" && (
+          <Button onClick={openModal} className="w-full sm:w-auto">
+            Create New User
+          </Button>
+        )}
       </div>
+    </div>
+
+    <div className="max-w-full overflow-x-auto">
+      <Table>
+        <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+          <TableRow>
+            <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">ID</TableCell>
+            <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">First Name</TableCell>
+            <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Last Name</TableCell>
+            <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Role</TableCell>
+            <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Action</TableCell>
+            <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Delete</TableCell>
+          </TableRow>
+        </TableHeader>
+
+        <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+          {filteredUsers.map((user) => (
+            <TableRow key={user.id}>
+              <TableCell className="px-5 py-4 text-start font-medium">{user.id}</TableCell>
+              <TableCell className="px-5 py-4 text-start">{user.firstName}</TableCell>
+              <TableCell className="px-5 py-4 text-start">{user.lastName}</TableCell>
+              <TableCell className="px-5 py-4 text-start">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                  ${user.role.name === 'admin' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                    user.role.name === 'guest' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                    user.role.name === 'cleaner' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                    'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'}`}>
+                  {user.role.name}
+                </span>
+              </TableCell>
+              <TableCell className="px-5 py-4 text-start">
+                {currentUserRole === "admin" && user.id !== currentUserId && (
+                  <Button onClick={() => handleEdit(user.id, user.role.name)}>Edit</Button>
+                )}
+              </TableCell>
+              <TableCell className="px-5 py-4 text-start">
+                {currentUserRole === "admin" && user.id !== currentUserId && (
+                  <Button
+                    onClick={() => handleDelete(user.id)}
+                    className="bg-red-500 text-white hover:bg-red-600"
+                  >
+                    Delete
+                  </Button>
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  </div>
+
 
       <Modal isOpen={isOpen} onClose={closeModal} className="max-w-[700px] m-4">
         <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
