@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import RecentOrdersForRooms from "../../layout/RecentOrdersForRooms";
 import RevenueStats from "../../layout/RevenueStats";
 import CheckinStatus from "../../layout/CheckinStatus";
@@ -9,41 +10,101 @@ import RecentOrdersForBookings from "../../layout/RecentOrdersForBookings";
 export default function Home() {
   return (
     <>
-      <PageMeta
-        title="Bookly"
-        description="This is a hotel booking system"
-      />
-      <div className="grid grid-cols-12 gap-4 md:gap-6">
-        {/* Tabela me scroll dhe gjerësi të plotë */}
-        <div className="col-span-12 xl:col-span-12 space-y-6">
-        <div className="w-full max-h-[400px] overflow-y-auto">
-          <BasicTableOne />
-        </div>
-      </div>
+      <PageMeta title="Bookly" description="This is a hotel booking system" />
 
-      {/* Kalendar i zgjeruar plotësisht me scroll */}
-      <div className="col-span-12 xl:col-span-12">
-        <div className="w-full h-[400px] overflow-y-auto">
-          <Calendar />
-        </div>
-      </div>
+      <div className="bg-slate-50 min-h-screen p-4 md:p-6">
+        <div className="grid grid-cols-12 gap-6">
+          {/* Rreshti 1: Check-in/outs */}
+          <div className="col-span-12 bg-white rounded-2xl p-5 shadow-md max-h-[280px] overflow-hidden">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-base font-semibold text-gray-700">
+                Check-ins / Check-outs
+              </h2>
+              <Link
+                to="/Checkins"
+                className="text-sm text-blue-500 hover:text-blue-700 transition"
+              >
+                See more →
+              </Link>
+            </div>
+            <CheckinStatus />
+          </div>
 
+          {/* Rreshti 2: Bookings + Calendar */}
+          <div className="col-span-12 xl:col-span-6 bg-white rounded-2xl p-5 shadow-md max-h-[280px] overflow-hidden">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-base font-semibold text-gray-700">
+                Recent Bookings
+              </h2>
+              <Link
+                to="/Bookings/Bookings"
+                className="text-sm text-blue-500 hover:text-blue-700 transition"
+              >
+                See more →
+              </Link>
+            </div>
+            <RecentOrdersForBookings />
+          </div>
 
-        {/* Komponentët tjerë */}
-        <div className="col-span-12 xl:col-span-5">
-          <CheckinStatus />
-        </div>
+          <div className="col-span-12 xl:col-span-6 bg-blue-50 rounded-2xl p-5 shadow-md max-h-[280px] overflow-hidden">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-base font-semibold text-gray-700">Calendar</h2>
+              <Link
+                to="/calendar"
+                className="text-sm text-blue-500 hover:text-blue-700 transition"
+              >
+                See more →
+              </Link>
+            </div>
+            <Calendar />
+          </div>
 
-        <div className="col-span-12">
-          <RecentOrdersForRooms />
-        </div>
+          {/* Rreshti 3: Room Management + Staff Management */}
+          <div className="col-span-12 xl:col-span-6 bg-green-50 rounded-2xl p-5 shadow-md max-h-[280px] overflow-hidden">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-base font-semibold text-gray-700">
+                Room Management
+              </h2>
+              <Link
+                to="/room-status"
+                className="text-sm text-blue-500 hover:text-blue-700 transition"
+              >
+                See more →
+              </Link>
+            </div>
+            <RecentOrdersForRooms />
+          </div>
 
-        <div className="col-span-12 xl:col-span-5">
-          <RevenueStats />
-        </div>
+          <div className="col-span-12 xl:col-span-6 bg-yellow-50 rounded-2xl p-5 shadow-md max-h-[280px] overflow-hidden">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-base font-semibold text-gray-700">
+                Staff Management
+              </h2>
+              <Link
+                to="/basic-tables"
+                className="text-sm text-blue-500 hover:text-blue-700 transition"
+              >
+                See more →
+              </Link>
+            </div>
+            <BasicTableOne />
+          </div>
 
-        <div className="col-span-12 xl:col-span-7">
-          <RecentOrdersForBookings />
+          {/* Rreshti 4: Revenue Stats */}
+          <div className="col-span-12 bg-indigo-50 rounded-2xl p-5 shadow-md max-h-[280px] overflow-hidden">
+            <div className="flex justify-between items-center mb-3">
+              <h2 className="text-base font-semibold text-gray-700">
+                Revenue Overview
+              </h2>
+              <Link
+                to="/Revenue"
+                className="text-sm text-blue-500 hover:text-blue-700 transition"
+              >
+                See more →
+              </Link>
+            </div>
+            <RevenueStats />
+          </div>
         </div>
       </div>
     </>
