@@ -72,7 +72,12 @@ export default function Home() {
                 See more →
               </Link>
             </div>
-            <RecentOrdersForRooms />
+            {/* Hide Icons */}
+            <div
+              className="RecentOrdersForRooms [&_svg]:hidden [&_.bg-blue-100]:hidden [&_.bg-green-100]:hidden [&_.bg-yellow-100]:hidden [&_.bg-red-100]:hidden"
+            >
+              <RecentOrdersForRooms />
+            </div>
           </div>
 
           <div className="col-span-12 xl:col-span-6 bg-yellow-50 rounded-2xl p-5 shadow-md max-h-[280px] overflow-hidden">
@@ -87,7 +92,12 @@ export default function Home() {
                 See more →
               </Link>
             </div>
-            <BasicTableOne />
+            {/* Hide Icons */}
+            <div
+              className="basic-table-one [&_svg]:hidden [&_.bg-blue-100]:hidden [&_.bg-green-100]:hidden [&_.bg-yellow-100]:hidden [&_.bg-red-100]:hidden"
+            >
+              <BasicTableOne />
+            </div>
           </div>
 
           {/* Rreshti 4: Revenue Stats */}

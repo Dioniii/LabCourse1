@@ -99,7 +99,7 @@ app.post("/register", async (req, res) => {
     await pool.request()
       .input("email", sql.VarChar, email)
       .query(`
-        INSERT INTO HotelManagement.dbo.guest (user_id)
+        INSERT INTO HotelManagement.dbo.guests (user_id)
         SELECT id FROM HotelManagement.dbo.users WHERE email = @email
       `);
 
@@ -162,7 +162,7 @@ app.post("/signin", async (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

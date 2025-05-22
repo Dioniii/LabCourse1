@@ -130,7 +130,7 @@ const Calendar: React.FC = () => {
             headerToolbar={{
               left: "prev,next addEventButton",
               center: "title",
-              right: "dayGridMonth,timeGridWeek,timeGridDay",
+              right: "dayGridMonth",
             }}
             events={events}
             selectable={true}
