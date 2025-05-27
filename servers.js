@@ -421,14 +421,20 @@ app.put('/editProfile', authenticateJWT, async (req, res) => {
 // Get all rooms
 app.get("/rooms", authenticateJWT, async (req, res) => {
   try {
-
     if (req.user.role === "guest") {
       return res.status(403).json({ success: false, message: "Guests are not allowed to view rooms." });
     }
-    
+
     const pool = await poolPromise;
-    const result = await pool.request()
-      .query("SELECT * FROM HotelManagement.dbo.rooms");
+    const result = await pool.request().query(`
+      SELECT 
+        r.*, 
+        c.name AS category_name, 
+        s.name AS status_name
+      FROM HotelManagement.dbo.rooms r
+      LEFT JOIN HotelManagement.dbo.room_categories c ON r.category_id = c.id
+      LEFT JOIN HotelManagement.dbo.room_statuses s ON r.status_id = s.id
+    `);
 
     res.status(200).json({ success: true, data: result.recordset });
   } catch (error) {
@@ -439,12 +445,12 @@ app.get("/rooms", authenticateJWT, async (req, res) => {
 // Update room category and status
 app.put("/rooms/:id", authenticateJWT, async (req, res) => {
   const { id } = req.params;
-  const { category, status, maintenance_notes, price } = req.body;
+  const { category_id, status_id, maintenance_notes, price } = req.body;
 
   try {
     const pool = await poolPromise;
 
-    // First check if the room exists
+    // Kontrollo nëse dhoma ekziston
     const checkResult = await pool.request()
       .input("id", sql.Int, id)
       .query("SELECT * FROM HotelManagement.dbo.rooms WHERE id = @id");
@@ -453,54 +459,53 @@ app.put("/rooms/:id", authenticateJWT, async (req, res) => {
       return res.status(404).json({ success: false, message: "Room not found" });
     }
 
-    // Then update the room
+    // Përditëso dhomën
     await pool.request()
       .input("id", sql.Int, id)
-      .input("category", sql.VarChar, category)
-      .input("status", sql.VarChar, status)
+      .input("category_id", sql.Int, category_id)
+      .input("status_id", sql.Int, status_id)
       .input("maintenance_notes", sql.VarChar, maintenance_notes)
       .input("price", sql.Decimal(10, 2), price)
       .query(`
         UPDATE HotelManagement.dbo.rooms 
-        SET category = @category, 
-            status = @status, 
+        SET category_id = @category_id, 
+            status_id = @status_id, 
             maintenance_notes = @maintenance_notes,
             price = @price
         WHERE id = @id
       `);
 
-    // Get the updated room data
+    // Kthe të dhënat e reja
     const updatedRoom = await pool.request()
       .input("id", sql.Int, id)
-      .query("SELECT * FROM HotelManagement.dbo.rooms WHERE id = @id");
+      .query(`
+        SELECT 
+          r.*, 
+          c.name AS category_name, 
+          s.name AS status_name
+        FROM HotelManagement.dbo.rooms r
+        LEFT JOIN HotelManagement.dbo.room_categories c ON r.category_id = c.id
+        LEFT JOIN HotelManagement.dbo.room_statuses s ON r.status_id = s.id
+        WHERE r.id = @id
+      `);
 
     res.status(200).json({ 
       success: true, 
       message: "Room updated successfully",
       data: updatedRoom.recordset[0]
     });
+
   } catch (error) {
-    console.error("Error updating room:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // CREATE ROOM
 app.post("/rooms", authenticateJWT, async (req, res) => {
-  const { room_number, category, price, status, maintenance_notes } = req.body;
-  const validCategories = ["Standard", "Deluxe", "Suite"];
-  const validStatuses = ["Available", "Occupied", "Maintenance"];
+  const { room_number, category_id, price, status_id, maintenance_notes } = req.body;
 
-  if (!room_number || !category || !price) {
-    return res.status(400).json({ success: false, message: "room_number, category, and price are required" });
-  }
-
-  if (!validCategories.includes(category)) {
-    return res.status(400).json({ success: false, message: "Invalid category" });
-  }
-
-  if (status && !validStatuses.includes(status)) {
-    return res.status(400).json({ success: false, message: "Invalid status" });
+  if (!room_number || !category_id || !price) {
+    return res.status(400).json({ success: false, message: "room_number, category_id, and price are required" });
   }
 
   try {
@@ -512,20 +517,20 @@ app.post("/rooms", authenticateJWT, async (req, res) => {
 
     await pool.request()
       .input("room_number", sql.VarChar, room_number)
-      .input("category", sql.VarChar, category)
+      .input("category_id", sql.Int, category_id)
       .input("price", sql.Decimal(10, 2), price)
-      .input("status", sql.VarChar, status || "Available")
+      .input("status_id", sql.Int, status_id || 8) // default: Available (id: 8)
       .input("maintenance_notes", sql.VarChar, maintenance_notes || null)
       .query(`
         INSERT INTO HotelManagement.dbo.rooms 
-        (room_number, category, price, status, maintenance_notes)
-        VALUES (@room_number, @category, @price, @status, @maintenance_notes)
+        (room_number, category_id, price, status_id, maintenance_notes)
+        VALUES (@room_number, @category_id, @price, @status_id, @maintenance_notes)
       `);
 
     res.status(201).json({ success: true, message: "Room created successfully" });
 
   } catch (error) {
-    if (error.originalError?.info?.number === 2627) { // duplicate key
+    if (error.originalError?.info?.number === 2627) {
       res.status(400).json({ success: false, message: "Room number already exists" });
     } else {
       res.status(500).json({ success: false, error: error.message });
