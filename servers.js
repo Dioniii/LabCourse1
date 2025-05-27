@@ -681,30 +681,32 @@ app.put("/users/:id", authenticateJWT, async (req, res) => {
 });
 
 // Cleaners
-app.get('/cleaners', async (req, res) => {
+app.get('/cleaners', authenticateJWT, async (req, res) => {
   try {
-    const pool = await sql.connect(config);
+    const pool = await poolPromise;
 
     const query = `
       SELECT 
-        u.id, 
-        u.first_name, 
-        u.last_name, 
-        r.name AS role,
-        c.hired_date
+      u.id, 
+      u.first_name, 
+      u.last_name, 
+      r.name AS role,
+      c.hired_date
       FROM HotelManagement.dbo.users u
       INNER JOIN HotelManagement.dbo.roles r ON u.role_id = r.id
-      LEFT JOIN HotelManagement.dbo.cleaners c ON u.id = c.user_id
+      LEFT JOIN HotelManagement.dbo.cleaners c ON u.id = c.user_id 
       WHERE r.name = 'cleaner'
-      ORDER BY ISNULL(c.hired_date, u.created_at) DESC;
+      ORDER BY c.hired_date DESC;
     `;
 
     const result = await pool.request().query(query);
 
-    res.json(result.recordset);
+    console.log("Cleaners:", result.recordset);
+
+    res.json({ success: true, data: result.recordset });
   } catch (err) {
     console.error('Error fetching cleaners:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json({ success: false, error: 'Internal Server Error' });
   }
 });
 

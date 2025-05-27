@@ -19,7 +19,7 @@ const RecentOrdersForBookings = () => {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">
-          Bookings
+          Manage Bookings
         </h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
           Lista e rezervimeve të fundit

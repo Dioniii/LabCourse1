@@ -24,6 +24,7 @@ import Home from "./pages/Dashboard/Home";
 import Bookings from './layout/Bookings.jsx';
 import Revenue from './layout/Revenue';
 import Checkins from './layout/Checkins';
+import GuestsBookings from './layout/GuestsBookings';
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
             <Route path="/Bookings/Bookings" element={<Bookings />} />
             <Route path="/Revenue" element={<Revenue />} />
             <Route path="/Checkins" element={<Checkins />} />
+            <Route path="/GuestsBookings" element={<GuestsBookings />} />
 
             {/* Others Page */}
             <Route path="/profile" element={<UserProfiles />} />

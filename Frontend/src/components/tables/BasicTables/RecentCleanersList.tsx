@@ -15,6 +15,7 @@ type Cleaner = {
   first_name: string;
   last_name: string;
   role: string;
+  hired_date?: string | null;
 };
 
 const RecentCleanersList = () => {
@@ -22,21 +23,33 @@ const RecentCleanersList = () => {
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
-  const fetchCleaners = async () => {
-    try {
-      const response = await axios.get("http://localhost:3000/cleaners"); 
-      console.log("Fetched cleaners:", response.data);
-      setCleaners(response.data);
-    } catch (error) {
-      console.error("Error fetching cleaners:", error);
+    const fetchCleaners = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const response = await axios.get("http://localhost:8000/cleaners", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        console.log("API response:", response.data);
+
+        if (response.data && Array.isArray(response.data.data)) {
+          console.log("Cleaners received:", response.data.data);
+          setCleaners(response.data.data);
+        } else {
+          console.warn("Data is not in expected format:", response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching cleaners:", error);
       }
     };
+
     fetchCleaners();
   }, []);
 
-
   const filteredCleaners = cleaners.filter((user) => {
-    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
+    const fullName = `${user.first_name || ""} ${user.last_name || ""}`.toLowerCase();
     return fullName.includes(searchTerm.toLowerCase());
   });
 
@@ -66,22 +79,29 @@ const RecentCleanersList = () => {
                 <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">First Name</TableCell>
                 <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Last Name</TableCell>
                 <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Role</TableCell>
+                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start">Hired Date</TableCell>
               </TableRow>
             </TableHeader>
 
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-              {filteredCleaners.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="px-5 py-4 text-start font-medium">{user.id}</TableCell>
-                  <TableCell className="px-5 py-4 text-start">{user.first_name}</TableCell>
-                  <TableCell className="px-5 py-4 text-start">{user.last_name}</TableCell>
-                  <TableCell className="px-5 py-4 text-start">
-                    <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800 dark:bg-orange-900 dark:text-orange-200">
-                      {user.role}
-                    </span>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {filteredCleaners.map((user) => {
+                console.log("Rendering cleaner:", user); 
+                return (
+                  <TableRow key={user.id}>
+                    <TableCell className="px-5 py-4 text-start font-medium">{user.id}</TableCell>
+                    <TableCell className="px-5 py-4 text-start">{user.first_name}</TableCell>
+                    <TableCell className="px-5 py-4 text-start">{user.last_name}</TableCell>
+                    <TableCell className="px-5 py-4 text-start">
+                      <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800 dark:bg-orange-900 dark:text-orange-200">
+                        {user.role}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-5 py-4 text-start">
+                      {user.hired_date ?? "N/A"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

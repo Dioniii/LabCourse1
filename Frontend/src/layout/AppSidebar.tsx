@@ -11,7 +11,7 @@ import {
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import SidebarWidget from "./SidebarWidget";
-import { Bookmark, Bed, DollarSign, Repeat } from "lucide-react";
+import { Bookmark, Bed, DollarSign, Repeat, ClipboardList } from "lucide-react";
 
 type NavItem = {
   name: string;
@@ -28,9 +28,15 @@ const navItems: NavItem[] = [
     path: "/",
   },
   {
+    icon: <ClipboardList className="w-5 h-5 stroke-[1.5]" />,
+    name: "Manage Bookings",
+    path: "/Bookings/Bookings",
+    parent: "Dashboard",
+  },
+  {
     icon: <Bookmark className="w-5 h-5 stroke-[1.5]" />,
     name: "Bookings",
-    path: "/Bookings/Bookings",
+    path: "/GuestsBookings",
     parent: "Dashboard",
   },
   {
@@ -253,8 +259,8 @@ const AppSidebar: React.FC = () => {
   );
   
 const filteredNavItems = navItems.filter((item) => {
-  const hiddenForGuest = ["Revenue", "Room Status", "Check-ins/outs", "Dashboard", "Calendar", "Staff Management"];
-  const hiddenForCleaner = ["Revenue", "Bookings", "Check-ins/outs", "Calendar", "Dashboard", "Staff Management"];
+  const hiddenForGuest = ["Revenue", "Room Status", "Check-ins/outs", "Dashboard", "Calendar", "Staff Management", "Bookings"];
+  const hiddenForCleaner = ["Revenue", "Bookings", "Check-ins/outs", "Calendar", "Dashboard", "Staff Management", "Manage Bookings"];
   if (userRole === "guest") {
     return !hiddenForGuest.includes(item.name);
   }
