@@ -418,27 +418,72 @@ app.put('/editProfile', authenticateJWT, async (req, res) => {
   }
 });
 
+// Get all room categories
+app.get("/room-categories", authenticateJWT, async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+      SELECT * FROM HotelManagement.dbo.room_categories
+    `);
+
+    res.status(200).json({ 
+      success: true, 
+      data: result.recordset 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Get all room statuses
+app.get("/room-statuses", authenticateJWT, async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+      SELECT * FROM HotelManagement.dbo.room_statuses
+    `);
+
+    res.status(200).json({ 
+      success: true, 
+      data: result.recordset 
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 // Get all rooms
 app.get("/rooms", authenticateJWT, async (req, res) => {
   try {
-    if (req.user.role === "guest") {
-      return res.status(403).json({ success: false, message: "Guests are not allowed to view rooms." });
-    }
-
     const pool = await poolPromise;
     const result = await pool.request().query(`
       SELECT 
-        r.*, 
-        c.name AS category_name, 
-        s.name AS status_name
+        r.id, r.room_number, r.price, r.maintenance_notes,
+        r.category_id, c.name AS category_name,
+        r.status_id, s.name AS status_name
       FROM HotelManagement.dbo.rooms r
       LEFT JOIN HotelManagement.dbo.room_categories c ON r.category_id = c.id
       LEFT JOIN HotelManagement.dbo.room_statuses s ON r.status_id = s.id
     `);
 
-    res.status(200).json({ success: true, data: result.recordset });
+    console.log('Rooms from DB:', result.recordset); 
+
+    res.status(200).json({ 
+      success: true, 
+      data: result.recordset 
+    });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('Error fetching rooms:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
   }
 });
 

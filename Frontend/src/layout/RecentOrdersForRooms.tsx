@@ -13,44 +13,54 @@ import Button from "../components/ui/button/Button";
 import Input from "../components/form/input/InputField";
 import Label from "../components/form/Label";
 
-const Select = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
-  <select className="border px-2 py-1 rounded w-full" {...props} />
-);
-
 interface Room {
   id: number;
   room_number: string;
-  category: "Standard" | "Deluxe" | "Suite";
+  category_id: number;
+  category_name: string;
   price: number;
-  status: "Available" | "Occupied" | "Maintenance";
-  maintenance_notes: string | null;
+  status_id: number;
+  status_name: string;
+  maintenance_notes: string | null; 
+}
+
+interface RoomCategory {
+  id: number;
+  name: string;
+}
+
+interface RoomStatus {
+  id: number;
+  name: string;
 }
 
 const parseJwt = (token: string) => {
-  const base64Url = token.split('.')[1]; // Pjesa e dytë e tokenit (payload)
-  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/'); // Konvertoni në formatin standard të Base64
+  const base64Url = token.split('.')[1];
+  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
   const jsonPayload = decodeURIComponent(
-    atob(base64) // Shndërro në string
+    atob(base64)
       .split('') 
       .map((c) => `%${('00' + c.charCodeAt(0).toString(16)).slice(-2)}`)
       .join('')
   );
 
-  return JSON.parse(jsonPayload); // Kthe payload-in si objekt
+  return JSON.parse(jsonPayload);
 };
 
 export default function RoomTable() {
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [categories, setCategories] = useState<RoomCategory[]>([]);
+  const [statuses, setStatuses] = useState<RoomStatus[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [editedRoom, setEditedRoom] = useState<Room | null>(null);
   const [priceInput, setPriceInput] = useState("");
   const [newRoom, setNewRoom] = useState<Partial<Room>>({
-    room_number: "",
-    category: "Standard",
-    price: 0,
-    status: "Available",
-    maintenance_notes: "",
-  });
+  room_number: "",
+  category_id: categories.length > 0 ? categories[0].id : 0,
+  price: 0,
+  status_id: statuses.find(s => s.name === 'Available')?.id || 0,
+  maintenance_notes: "",
+});
   const [userRole, setUserRole] = useState<string | null>(null);
   
   // Modal states
@@ -63,50 +73,49 @@ export default function RoomTable() {
   const [maintenanceNoteError, setMaintenanceNoteError] = useState(false);
   const [editMaintenanceNoteError, setEditMaintenanceNoteError] = useState(false);
 
-  const fetchRooms = () => {
-    const token = localStorage.getItem("jwtToken");
-
-    if (token) {
-      const decodedToken = parseJwt(token);
-      const userRole = decodedToken.role; // Supozojmë që roli është në payload si "role"
-      setUserRole(userRole); // Ruajmë rolin në shtetin e komponentës
-
-      if (userRole !== "admin") {
-        // Fshi dhomat për përdoruesit që nuk janë admin
-        setRooms([]);
-        return;
-      }
-
-      axios
-        .get("http://localhost:8000/rooms", {
-          headers: { Authorization: `Bearer ${token}` },
-        })
-        .then((res) => {
-          if (res.data.success) {
-            setRooms(res.data.data);
-          }
-        })
-        .catch((err) => console.error("Gabim gjatë marrjes së dhomave:", err));
-    }
-  };
-
   useEffect(() => {
-    fetchRooms();
-  }, []);
+  fetchRooms();
+}, []); 
 
-  // In create modal, clear notes if status changes
+const fetchRooms = async () => {
+  const token = localStorage.getItem("jwtToken");
+  if (!token) return;
+
+  try {
+    const decodedToken = parseJwt(token);
+    setUserRole(decodedToken.role);
+
+    // Fetch all data in parallel
+    const [roomsRes, categoriesRes, statusesRes] = await Promise.all([
+      axios.get("http://localhost:8000/rooms", { headers: { Authorization: `Bearer ${token}` } }),
+      axios.get("http://localhost:8000/room-categories", { headers: { Authorization: `Bearer ${token}` } }),
+      axios.get("http://localhost:8000/room-statuses", { headers: { Authorization: `Bearer ${token}` } })
+    ]);
+
+    setRooms(roomsRes.data?.data || []);
+    setCategories(categoriesRes.data?.data || []);
+    setStatuses(statusesRes.data?.data || []);
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    // Handle error appropriately
+  }
+};
+
+  // In create modal, clear notes if status changes to non-maintenance
   useEffect(() => {
-    if (newRoom.status !== 'Maintenance' && newRoom.maintenance_notes) {
+    const maintenanceStatus = statuses.find(s => s.name === 'Maintenance');
+    if (maintenanceStatus && newRoom.status_id !== maintenanceStatus.id && newRoom.maintenance_notes) {
       setNewRoom(prev => ({ ...prev, maintenance_notes: '' }));
     }
-  }, [newRoom.status]);
+  }, [newRoom.status_id, statuses, newRoom.maintenance_notes]); 
 
-  // In edit modal, clear notes if status changes
+  // In edit modal, clear notes if status changes to non-maintenance
   useEffect(() => {
-    if (editedRoom && editedRoom.status !== 'Maintenance' && editedRoom.maintenance_notes) {
+    const maintenanceStatus = statuses.find(s => s.name === 'Maintenance');
+    if (editedRoom && maintenanceStatus && editedRoom.status_id !== maintenanceStatus.id && editedRoom.maintenance_notes) {
       setEditedRoom(prev => prev ? { ...prev, maintenance_notes: '' } : null);
     }
-  }, [editedRoom?.status]);
+  }, [editedRoom, editedRoom?.status_id, statuses]); 
 
   const handleEditClick = (room: Room) => {
     setEditedRoom(room);
@@ -114,46 +123,48 @@ export default function RoomTable() {
     openEditModal();
   };
 
-  const handleEditSave = async () => {
-    if (!editedRoom) return;
-    if (editedRoom.status === 'Maintenance' && (!editedRoom.maintenance_notes || editedRoom.maintenance_notes.trim() === '')) {
-      setEditMaintenanceNoteError(true);
-      return;
-    } else {
-      setEditMaintenanceNoteError(false);
-    }
-    try {
-      const response = await fetch(`http://localhost:8000/rooms/${editedRoom.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("jwtToken")}`,
-        },
-        body: JSON.stringify({
-          category: editedRoom.category,
-          status: editedRoom.status,
-          maintenance_notes: editedRoom.status === 'Maintenance' ? editedRoom.maintenance_notes : null,
-          price: priceInput === '' ? 0 : parseFloat(priceInput)
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to update room");
+const handleEditSave = async () => {
+  if (!editedRoom) return;
+  
+  const maintenanceStatus = statuses.find(s => s.name === 'Maintenance');
+  if (maintenanceStatus && editedRoom.status_id === maintenanceStatus.id && 
+      (!editedRoom.maintenance_notes || editedRoom.maintenance_notes.trim() === '')) {
+    setEditMaintenanceNoteError(true);
+    return;
+  } else {
+    setEditMaintenanceNoteError(false);
+  }
+  
+  try {
+    const token = localStorage.getItem("jwtToken");
+    const response = await axios.put(
+      `http://localhost:8000/rooms/${editedRoom.id}`,
+      {
+        category_id: editedRoom.category_id,
+        status_id: editedRoom.status_id,
+        maintenance_notes: maintenanceStatus && editedRoom.status_id === maintenanceStatus.id ? 
+          editedRoom.maintenance_notes : null,
+        price: priceInput === '' ? 0 : parseFloat(priceInput)
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` },
       }
+    );
 
-      // Update the rooms list with the updated room data
-      setRooms(prevRooms => 
-        prevRooms.map(room => 
-          room.id === editedRoom.id ? data.data : room
-        )
-      );
+    setRooms(prevRooms => 
+      prevRooms.map(room => 
+        room.id === editedRoom.id ? response.data.data : room
+      )
+    );
 
-      closeEditModal();
-    } catch (error: any) {
-      console.error("Error updating room:", error);
-      alert(error.message || "An error occurred while updating the room");
+    closeEditModal();
+    } catch (error: unknown) {
+    console.error("Error updating room:", error);
+    if (axios.isAxiosError(error)) {
+      alert(error.response?.data?.message || "Failed to update room");
+      } else {
+      alert("An error occurred while updating the room");
+      }
     }
   };
 
@@ -181,11 +192,14 @@ export default function RoomTable() {
   const handleCreateRoom = async () => {
     const token = localStorage.getItem("jwtToken");
 
-    if (!newRoom.room_number || newRoom.price === undefined) {
-      alert("Please fill in the room number and price.");
+    if (!newRoom.room_number || newRoom.price === undefined || !newRoom.category_id || !newRoom.status_id) {
+      alert("Please fill in all required fields.");
       return;
     }
-    if (newRoom.status === 'Maintenance' && (!newRoom.maintenance_notes || newRoom.maintenance_notes.trim() === '')) {
+    
+    const maintenanceStatus = statuses.find(s => s.name === 'Maintenance');
+    if (maintenanceStatus && newRoom.status_id === maintenanceStatus.id && 
+        (!newRoom.maintenance_notes || newRoom.maintenance_notes.trim() === '')) {
       setMaintenanceNoteError(true);
       return;
     } else {
@@ -197,11 +211,11 @@ export default function RoomTable() {
         "http://localhost:8000/rooms",
         {
           room_number: newRoom.room_number,
-          category: newRoom.category,
+          category_id: newRoom.category_id,
           price: newRoom.price,
-          status: newRoom.status,
-          maintenance_notes:
-            newRoom.status === "Maintenance" ? newRoom.maintenance_notes : null,
+          status_id: newRoom.status_id,
+          maintenance_notes: maintenanceStatus && newRoom.status_id === maintenanceStatus.id ? 
+            newRoom.maintenance_notes : null,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -209,9 +223,9 @@ export default function RoomTable() {
       );
       setNewRoom({
         room_number: "",
-        category: "Standard",
+        category_id: categories.length > 0 ? categories[0].id : 0,
         price: 0,
-        status: "Available",
+        status_id: 8, // Default to Available (id: 8)
         maintenance_notes: "",
       });
       closeCreateModal();
@@ -225,7 +239,24 @@ export default function RoomTable() {
     room.room_number.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Nëse roli është 'guest', mos shfaq dhomat fare
+  // Get status name by ID
+  const getStatusName = (statusId: number) => {
+    const status = statuses.find(s => s.id === statusId);
+    return status ? status.name : "Unknown";
+  };
+
+  // Get category name by ID
+  const getCategoryName = (categoryId: number) => {
+    const category = categories.find(c => c.id === categoryId);
+    return category ? category.name : "Unknown";
+  };
+
+  // Check if status is maintenance
+  const isMaintenanceStatus = (statusId: number) => {
+    const maintenanceStatus = statuses.find(s => s.name === 'Maintenance');
+    return maintenanceStatus && statusId === maintenanceStatus.id;
+  };
+
   if (userRole === "guest") {
     return <div>You do not have permission to view this page.</div>;
   }
@@ -258,7 +289,7 @@ export default function RoomTable() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Available Rooms</p>
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {rooms.filter(room => room.status === "Available").length}
+                {rooms.filter(room => getStatusName(room.status_id) === "Available").length}
               </h3>
             </div>
             <div className="rounded-full bg-green-100 p-3 dark:bg-green-900">
@@ -273,7 +304,7 @@ export default function RoomTable() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Occupied Rooms</p>
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {rooms.filter(room => room.status === "Occupied").length}
+                {rooms.filter(room => getStatusName(room.status_id) === "Occupied").length}
               </h3>
             </div>
             <div className="rounded-full bg-yellow-100 p-3 dark:bg-yellow-900">
@@ -288,7 +319,7 @@ export default function RoomTable() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Under Maintenance</p>
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {rooms.filter(room => room.status === "Maintenance").length}
+                {rooms.filter(room => getStatusName(room.status_id) === "Maintenance").length}
               </h3>
             </div>
             <div className="rounded-full bg-red-100 p-3 dark:bg-red-900">
@@ -333,16 +364,16 @@ export default function RoomTable() {
                   <TableCell className="px-5 py-4 text-start font-medium">{room.room_number}</TableCell>
                   <TableCell className="px-5 py-4 text-start">
                     <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-800 dark:text-gray-200">
-                      {room.category}
+                      {getCategoryName(room.category_id)}
                     </span>
                   </TableCell>
                   <TableCell className="px-5 py-4 text-start">${room.price}</TableCell>
                   <TableCell className="px-5 py-4 text-start">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                      ${room.status === 'Available' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                        room.status === 'Occupied' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                      ${getStatusName(room.status_id) === 'Available' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                        getStatusName(room.status_id) === 'Occupied' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
                         'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
-                      {room.status}
+                      {getStatusName(room.status_id)}
                     </span>
                   </TableCell>
                   <TableCell className="px-5 py-4 text-start">{room.maintenance_notes || "-"}</TableCell>
@@ -399,17 +430,17 @@ export default function RoomTable() {
                     <Label>Category</Label>
                     <select
                       className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                      value={newRoom.category}
+                      value={newRoom.category_id}
                       onChange={(e) =>
                         setNewRoom((prev) => ({
                           ...prev,
-                          category: e.target.value as Room["category"],
+                          category_id: parseInt(e.target.value),
                         }))
                       }
                     >
-                      <option value="Standard">Standard</option>
-                      <option value="Deluxe">Deluxe</option>
-                      <option value="Suite">Suite</option>
+                      {categories.map(category => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -430,34 +461,35 @@ export default function RoomTable() {
                     <Label>Status</Label>
                     <select
                       className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                      value={newRoom.status}
+                      value={newRoom.status_id}
                       onChange={(e) =>
                         setNewRoom((prev) => ({
                           ...prev,
-                          status: e.target.value as Room["status"],
+                          status_id: parseInt(e.target.value),
                         }))
                       }
                     >
-                      <option value="Available">Available</option>
-                      <option value="Occupied">Occupied</option>
-                      <option value="Maintenance">Maintenance</option>
+                      {statuses.map(status => (
+                        <option key={status.id} value={status.id}>{status.name}</option>
+                      ))}
                     </select>
                   </div>
-                  {newRoom.status === "Maintenance" && (
+                  {isMaintenanceStatus(newRoom.status_id ?? 0) && (  
                     <div className="lg:col-span-2">
-                      <Label>Maintenance Notes <span className="text-red-500">*</span></Label>
-                      <Input
-                        type="text"
-                        value={newRoom.maintenance_notes || ""}
-                        onChange={(e) => {
-                          setNewRoom((prev) => ({
-                            ...prev,
-                            maintenance_notes: e.target.value,
-                          }));
-                          setMaintenanceNoteError(false);
-                        }}
-                        placeholder="Enter maintenance notes"
-                        className={maintenanceNoteError ? "border-red-500" : ""}
+                    <Label>Maintenance Notes <span className="text-red-500">*</span></Label>
+                    <Input
+                      type="text"
+                      value={newRoom.maintenance_notes ?? ""}
+                      onChange={(e) => {
+                        setNewRoom((prev) => ({
+                        ...prev,
+                        maintenance_notes: e.target.value,
+                        status_id: prev.status_id ?? 0 // Sigurohuni që status_id të ketë vlerë
+                      }));
+                      setMaintenanceNoteError(false);
+                    }}
+                      placeholder="Enter maintenance notes"
+                      className={maintenanceNoteError ? "border-red-500" : ""}
                       />
                       {maintenanceNoteError && (
                         <span className="text-xs text-red-500">Maintenance notes are required when status is Maintenance.</span>
@@ -521,17 +553,17 @@ export default function RoomTable() {
                     <Label>Category</Label>
                     <select
                       className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                      value={editedRoom?.category || "Standard"}
+                      value={editedRoom?.category_id || 0}
                       onChange={(e) =>
                         setEditedRoom(prev => prev ? {
                           ...prev,
-                          category: e.target.value as Room["category"]
+                          category_id: parseInt(e.target.value)
                         } : null)
                       }
                     >
-                      <option value="Standard">Standard</option>
-                      <option value="Deluxe">Deluxe</option>
-                      <option value="Suite">Suite</option>
+                      {categories.map(category => (
+                        <option key={category.id} value={category.id}>{category.name}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -552,20 +584,20 @@ export default function RoomTable() {
                     <Label>Status</Label>
                     <select
                       className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                      value={editedRoom?.status || "Available"}
+                      value={editedRoom?.status_id || 8}
                       onChange={(e) =>
                         setEditedRoom(prev => prev ? {
                           ...prev,
-                          status: e.target.value as Room["status"]
+                          status_id: parseInt(e.target.value)
                         } : null)
                       }
                     >
-                      <option value="Available">Available</option>
-                      <option value="Occupied">Occupied</option>
-                      <option value="Maintenance">Maintenance</option>
+                      {statuses.map(status => (
+                        <option key={status.id} value={status.id}>{status.name}</option>
+                      ))}
                     </select>
                   </div>
-                  {editedRoom?.status === "Maintenance" && (
+                  {editedRoom && isMaintenanceStatus(editedRoom.status_id) && (
                     <div className="lg:col-span-2">
                       <Label>Maintenance Notes <span className="text-red-500">*</span></Label>
                       <Input
