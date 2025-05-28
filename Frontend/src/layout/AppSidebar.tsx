@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import {
   CalenderIcon,
@@ -72,8 +72,6 @@ const navItems: NavItem[] = [
     icon: <TableIcon />,
     subItems: [
       { name: "Users List", path: "/basic-tables", pro: false },
-      { name: "Guests List", path: "/guests-list" },
-      { name: "Cleaners List", path: "/cleaners-list" }
     ],
   },
 ];
@@ -81,6 +79,7 @@ const navItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const [userRole, setUserRole] = useState<string | null>(null);
 
@@ -109,8 +108,17 @@ const AppSidebar: React.FC = () => {
       );
       const decodedToken = JSON.parse(jsonPayload);
       setUserRole(decodedToken.role);
+
+      // Redirect based on user role
+      if (location.pathname === '/') {
+        if (decodedToken.role === 'guest') {
+          navigate('/GuestsBookings');
+        } else if (decodedToken.role === 'cleaner') {
+          navigate('/room-status');
+        }
+      }
     }
-  }, []);
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     let submenuMatched = false;
@@ -258,19 +266,20 @@ const AppSidebar: React.FC = () => {
     </ul>
   );
   
-const filteredNavItems = navItems.filter((item) => {
-  const hiddenForGuest = ["Revenue", "Room Status", "Check-ins/outs", "Dashboard", "Calendar", "Staff Management", "Bookings"];
-  const hiddenForCleaner = ["Revenue", "Bookings", "Check-ins/outs", "Calendar", "Dashboard", "Staff Management", "Manage Bookings"];
-  if (userRole === "guest") {
-    return !hiddenForGuest.includes(item.name);
-  }
+  const filteredNavItems = navItems.filter((item) => {
+    const hiddenForGuest = ["Revenue", "Room Status", "Check-ins/outs", "Dashboard", "Calendar", "Staff Management", "Manage Bookings"];
+    const hiddenForCleaner = ["Revenue", "Bookings", "Check-ins/outs", "Calendar", "Dashboard", "Staff Management", "Manage Bookings"];
+    
+    if (userRole === "guest") {
+      return !hiddenForGuest.includes(item.name);
+    }
 
-  if (userRole === "cleaner") {
-    return !hiddenForCleaner.includes(item.name);
-  }
+    if (userRole === "cleaner") {
+      return !hiddenForCleaner.includes(item.name);
+    }
 
-  return true;
-});
+    return true;
+  });
 
   return (
     <aside
