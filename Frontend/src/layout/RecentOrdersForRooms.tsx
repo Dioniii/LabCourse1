@@ -56,9 +56,9 @@ export default function RoomTable() {
   const [priceInput, setPriceInput] = useState("");
   const [newRoom, setNewRoom] = useState<Partial<Room>>({
     room_number: "",
-    category_id: categories.length > 0 ? categories[0].id : 0,
+    category_id: 0,
     price: 0,
-    status_id: statuses.find(s => s.name === 'Available')?.id || 0,
+    status_id: 8, // Default to Available (id: 8)
     maintenance_notes: "",
   });
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -99,6 +99,16 @@ export default function RoomTable() {
       console.error("Error fetching data:", error);
     }
   };
+
+  // Initialize newRoom.category_id after categories are fetched
+  useEffect(() => {
+    if (categories.length > 0 && newRoom.category_id === 0) {
+      setNewRoom(prev => ({
+        ...prev,
+        category_id: categories[0].id
+      }));
+    }
+  }, [categories]);
 
   // In create modal, clear notes if status changes to non-maintenance
   useEffect(() => {
@@ -234,6 +244,7 @@ export default function RoomTable() {
       fetchRooms();
     } catch (error) {
       console.error("Error creating room:", error);
+      alert("Error creating room. Please try again.");
     }
   };
 
@@ -386,7 +397,7 @@ export default function RoomTable() {
                   <TableCell className="px-5 py-4 text-start">
                     <div className="flex gap-2">
                       <Button onClick={() => handleEditClick(room)}>
-                        {userRole === "cleaner" ? "Edit Status" : "Edit"}
+                        {userRole === "cleaner" ? "Change Status" : "Edit"}
                       </Button>
                       {userRole !== "cleaner" && (
                         <Button
@@ -425,7 +436,7 @@ export default function RoomTable() {
                   </h5>
                   <div className="grid grid-cols-1 gap-x-6 gap-y-5 lg:grid-cols-2">
                     <div>
-                      <Label>Room Number</Label>
+                      <Label>Room Number <span className="text-red-500">*</span></Label>
                       <Input
                         type="text"
                         value={newRoom.room_number}
@@ -436,26 +447,24 @@ export default function RoomTable() {
                       />
                     </div>
                     <div>
-                      <Label>Category</Label>
-                        <select
-                          className={`h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:placeholder:text-white/30 dark:focus:border-brand-800
-                          ${userRole === "cleaner" ? "text-gray-400 dark:text-gray-500" : "text-gray-800 dark:text-white/90"}`}
-                          value={editedRoom?.category_id || 0}
-                          onChange={(e) =>
-                          setEditedRoom(prev => prev ? {
+                      <Label>Category <span className="text-red-500">*</span></Label>
+                      <select
+                        className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
+                        value={newRoom.category_id}
+                        onChange={(e) =>
+                          setNewRoom(prev => ({
                             ...prev,
                             category_id: parseInt(e.target.value)
-                            } : null)
-                          }
-                          disabled={userRole === "cleaner"}
-                          >
-                          {categories.map(category => (
-                            <option key={category.id} value={category.id}>{category.name}</option>
-                          ))}
-                        </select>
+                          }))
+                        }
+                      >
+                        {categories.map(category => (
+                          <option key={category.id} value={category.id}>{category.name}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
-                      <Label>Price</Label>
+                      <Label>Price <span className="text-red-500">*</span></Label>
                       <Input
                         type="number"
                         value={newRoom.price === undefined || newRoom.price === null ? '' : newRoom.price}
@@ -469,7 +478,7 @@ export default function RoomTable() {
                       />
                     </div>
                     <div>
-                      <Label>Status</Label>
+                      <Label>Status <span className="text-red-500">*</span></Label>
                       <select
                         className="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
                         value={newRoom.status_id}
@@ -540,10 +549,10 @@ export default function RoomTable() {
         <div className="no-scrollbar relative w-full max-w-[700px] overflow-y-auto rounded-3xl bg-white p-4 dark:bg-gray-900 lg:p-11">
           <div className="px-2 pr-14">
             <h4 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">
-              {userRole === "cleaner" ? "Update Room Status" : "Edit Room"}
+              {userRole === "cleaner" ? "Change Room Status" : "Edit Room"}
             </h4>
             <p className="mb-6 text-sm text-gray-500 dark:text-gray-400 lg:mb-7">
-              {userRole === "cleaner" ? "Update the room's status information" : "Update the room's information"}
+              {userRole === "cleaner" ? "Change the room status information" : "Edit room information"}
             </p>
           </div>
           <form className="flex flex-col">
