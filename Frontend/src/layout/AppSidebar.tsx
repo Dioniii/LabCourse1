@@ -30,7 +30,7 @@ const navItems: NavItem[] = [
   {
     icon: <ClipboardList className="w-5 h-5 stroke-[1.5]" />,
     name: "Manage Bookings",
-    path: "/Bookings/Bookings",
+    path: "/bookings",
     parent: "Dashboard",
   },
   {
