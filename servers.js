@@ -791,3 +791,345 @@ app.get("/api/booking-statuses", authenticateJWT, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// GET ALL BOOKINGS
+app.get("/api/bookings", authenticateJWT, async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request().query(`
+      SELECT 
+        b.id,
+        b.user_id,
+        b.room_id,
+        b.check_in_date,
+        b.check_out_date,
+        b.booking_date,
+        b.status_id,
+        b.total_amount,
+        b.number_of_guests,
+        b.special_requests,
+        b.notes,
+        b.created_at,
+        b.updated_at,
+        u.first_name + ' ' + u.last_name as guest_name,
+        u.email as guest_email,
+        r.room_number,
+        r.price as room_price,
+        rc.name as room_category,
+        bs.name as status_name
+      FROM HotelManagement.dbo.bookings b
+      JOIN HotelManagement.dbo.users u ON b.user_id = u.id
+      JOIN HotelManagement.dbo.rooms r ON b.room_id = r.id
+      JOIN HotelManagement.dbo.room_categories rc ON r.category_id = rc.id
+      JOIN HotelManagement.dbo.booking_statuses bs ON b.status_id = bs.id
+      ORDER BY b.created_at DESC
+    `);
+    res.json({ success: true, data: result.recordset });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET BOOKING BY ID
+app.get("/api/bookings/:id", authenticateJWT, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input("id", sql.Int, id)
+      .query(`
+        SELECT 
+          b.*,
+          u.first_name + ' ' + u.last_name as guest_name,
+          u.email as guest_email,
+          r.room_number,
+          r.price as room_price,
+          rc.name as room_category,
+          bs.name as status_name
+        FROM HotelManagement.dbo.bookings b
+        JOIN HotelManagement.dbo.users u ON b.user_id = u.id
+        JOIN HotelManagement.dbo.rooms r ON b.room_id = r.id
+        JOIN HotelManagement.dbo.room_categories rc ON r.category_id = rc.id
+        JOIN HotelManagement.dbo.booking_statuses bs ON b.status_id = bs.id
+        WHERE b.id = @id
+      `);
+    if (result.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+    res.json({ success: true, data: result.recordset[0] });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// CREATE NEW BOOKING
+app.post("/api/bookings", authenticateJWT, async (req, res) => {
+  try {
+    const {
+      room_id,
+      check_in_date,
+      check_out_date,
+      number_of_guests,
+      special_requests
+    } = req.body;
+    if (!room_id || !check_in_date || !check_out_date || !number_of_guests) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing required fields: room_id, check_in_date, check_out_date, number_of_guests"
+      });
+    }
+    const checkIn = new Date(check_in_date);
+    const checkOut = new Date(check_out_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (checkIn < today) {
+      return res.status(400).json({
+        success: false,
+        message: "Check-in date cannot be in the past"
+      });
+    }
+    if (checkOut <= checkIn) {
+      return res.status(400).json({
+        success: false,
+        message: "Check-out date must be after check-in date"
+      });
+    }
+    const pool = await poolPromise;
+    // Get room and price
+    const roomCheck = await pool.request()
+      .input("room_id", sql.Int, room_id)
+      .query(`SELECT * FROM HotelManagement.dbo.rooms WHERE id = @room_id`);
+    if (roomCheck.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: "Room not found" });
+    }
+    // Check room availability
+    const availabilityCheck = await pool.request()
+      .input("room_id", sql.Int, room_id)
+      .input("check_in_date", sql.Date, check_in_date)
+      .input("check_out_date", sql.Date, check_out_date)
+      .query(`
+        SELECT COUNT(*) as booking_count
+        FROM HotelManagement.dbo.bookings
+        WHERE room_id = @room_id
+        AND status_id != (SELECT id FROM HotelManagement.dbo.booking_statuses WHERE name = 'Cancelled')
+        AND (
+          (check_in_date <= @check_out_date AND check_out_date >= @check_in_date)
+        )
+      `);
+    if (availabilityCheck.recordset[0].booking_count > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Room is not available for the selected dates"
+      });
+    }
+    // Calculate total amount using rooms.price
+    const days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    const total_amount = days * parseFloat(roomCheck.recordset[0].price);
+    // Get pending status ID
+    const statusResult = await pool.request()
+      .input("statusName", sql.VarChar, "Pending")
+      .query("SELECT id FROM HotelManagement.dbo.booking_statuses WHERE name = @statusName");
+    const statusId = statusResult.recordset[0]?.id;
+    if (!statusId) {
+      return res.status(500).json({ success: false, message: "Booking status not found" });
+    }
+    // Create booking
+    const result = await pool.request()
+      .input("user_id", sql.Int, req.user.id)
+      .input("room_id", sql.Int, room_id)
+      .input("check_in_date", sql.Date, check_in_date)
+      .input("check_out_date", sql.Date, check_out_date)
+      .input("status_id", sql.Int, statusId)
+      .input("total_amount", sql.Decimal(10, 2), total_amount)
+      .input("number_of_guests", sql.Int, number_of_guests)
+      .input("special_requests", sql.VarChar(sql.MAX), special_requests)
+      .query(`
+        INSERT INTO HotelManagement.dbo.bookings
+        (user_id, room_id, check_in_date, check_out_date, status_id, total_amount, number_of_guests, special_requests, booking_date)
+        VALUES (@user_id, @room_id, @check_in_date, @check_out_date, @status_id, @total_amount, @number_of_guests, @special_requests, GETDATE());
+        SELECT SCOPE_IDENTITY() as id;
+      `);
+    const bookingId = result.recordset[0].id;
+    res.status(201).json({
+      success: true,
+      message: "Booking created successfully",
+      data: { id: bookingId }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// UPDATE BOOKING
+app.put("/api/bookings/:id", authenticateJWT, async (req, res) => {
+  try {
+    const { id } = req.params;
+    let {
+      room_id,
+      check_in_date,
+      check_out_date,
+      status_id,
+      number_of_guests,
+      special_requests,
+      notes
+    } = req.body;
+    const pool = await poolPromise;
+    // Get booking and room price
+    const bookingCheck = await pool.request()
+      .input("id", sql.Int, id)
+      .query(`
+        SELECT b.*, r.price as room_price
+        FROM HotelManagement.dbo.bookings b
+        JOIN HotelManagement.dbo.rooms r ON b.room_id = r.id
+        WHERE b.id = @id
+      `);
+    if (bookingCheck.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+    if (req.user.role !== "admin" && bookingCheck.recordset[0].user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to modify this booking" });
+    }
+    // If dates or room changed, check availability
+    if (check_in_date || check_out_date || room_id) {
+      const availabilityCheck = await pool.request()
+        .input("room_id", sql.Int, room_id || bookingCheck.recordset[0].room_id)
+        .input("check_in_date", sql.Date, check_in_date || bookingCheck.recordset[0].check_in_date)
+        .input("check_out_date", sql.Date, check_out_date || bookingCheck.recordset[0].check_out_date)
+        .input("booking_id", sql.Int, id)
+        .query(`
+          SELECT COUNT(*) as booking_count
+          FROM HotelManagement.dbo.bookings
+          WHERE room_id = @room_id
+          AND id != @booking_id
+          AND status_id != (SELECT id FROM HotelManagement.dbo.booking_statuses WHERE name = 'Cancelled')
+          AND (
+            (check_in_date <= @check_out_date AND check_out_date >= @check_in_date)
+          )
+        `);
+      if (availabilityCheck.recordset[0].booking_count > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Room is not available for the selected dates"
+        });
+      }
+    }
+    // Calculate new total amount if dates or room changed
+    let total_amount = bookingCheck.recordset[0].total_amount;
+    let price = bookingCheck.recordset[0].room_price;
+    if (check_in_date || check_out_date || room_id) {
+      // If room changed, get new price
+      if (room_id && room_id !== bookingCheck.recordset[0].room_id) {
+        const newRoom = await pool.request()
+          .input("room_id", sql.Int, room_id)
+          .query(`SELECT price FROM HotelManagement.dbo.rooms WHERE id = @room_id`);
+        if (newRoom.recordset.length === 0) {
+          return res.status(404).json({ success: false, message: "Room not found" });
+        }
+        price = newRoom.recordset[0].price;
+      }
+      const checkIn = new Date(check_in_date || bookingCheck.recordset[0].check_in_date);
+      const checkOut = new Date(check_out_date || bookingCheck.recordset[0].check_out_date);
+      const days = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+      total_amount = days * parseFloat(price);
+    }
+    // Use current status_id if not provided
+    if (!status_id) {
+      status_id = bookingCheck.recordset[0].status_id;
+    }
+    // Update booking
+    await pool.request()
+      .input("id", sql.Int, id)
+      .input("room_id", sql.Int, room_id)
+      .input("check_in_date", sql.Date, check_in_date)
+      .input("check_out_date", sql.Date, check_out_date)
+      .input("status_id", sql.Int, status_id)
+      .input("total_amount", sql.Decimal(10, 2), total_amount)
+      .input("number_of_guests", sql.Int, number_of_guests)
+      .input("special_requests", sql.VarChar(sql.MAX), special_requests)
+      .input("notes", sql.VarChar(sql.MAX), notes)
+      .query(`
+        UPDATE HotelManagement.dbo.bookings
+        SET 
+          room_id = @room_id,
+          check_in_date = @check_in_date,
+          check_out_date = @check_out_date,
+          status_id = @status_id,
+          total_amount = @total_amount,
+          number_of_guests = @number_of_guests,
+          special_requests = @special_requests,
+          notes = @notes,
+          updated_at = GETDATE()
+        WHERE id = @id
+      `);
+    res.json({
+      success: true,
+      message: "Booking updated successfully"
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// DELETE BOOKING (Hard delete)
+app.delete("/api/bookings/:id", authenticateJWT, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const pool = await poolPromise;
+    const bookingCheck = await pool.request()
+      .input("id", sql.Int, id)
+      .query("SELECT * FROM HotelManagement.dbo.bookings WHERE id = @id");
+    if (bookingCheck.recordset.length === 0) {
+      return res.status(404).json({ success: false, message: "Booking not found" });
+    }
+    if (req.user.role !== "admin" && bookingCheck.recordset[0].user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: "Not authorized to delete this booking" });
+    }
+    // Hard delete the booking
+    await pool.request()
+      .input("id", sql.Int, id)
+      .query("DELETE FROM HotelManagement.dbo.bookings WHERE id = @id");
+    res.json({
+      success: true,
+      message: "Booking deleted successfully"
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// GET USER'S BOOKINGS
+app.get("/api/my-bookings", authenticateJWT, async (req, res) => {
+  try {
+    const pool = await poolPromise;
+    const result = await pool.request()
+      .input("user_id", sql.Int, req.user.id)
+      .query(`
+        SELECT 
+          b.id,
+          b.room_id,
+          b.check_in_date,
+          b.check_out_date,
+          b.booking_date,
+          b.status_id,
+          b.total_amount,
+          b.number_of_guests,
+          b.special_requests,
+          b.notes,
+          b.created_at,
+          b.updated_at,
+          r.room_number,
+          r.price as room_price,
+          rc.name as room_category,
+          bs.name as status_name
+        FROM HotelManagement.dbo.bookings b
+        JOIN HotelManagement.dbo.rooms r ON b.room_id = r.id
+        JOIN HotelManagement.dbo.room_categories rc ON r.category_id = rc.id
+        JOIN HotelManagement.dbo.booking_statuses bs ON b.status_id = bs.id
+        WHERE b.user_id = @user_id
+        ORDER BY b.created_at DESC
+      `);
+    res.json({ success: true, data: result.recordset });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});

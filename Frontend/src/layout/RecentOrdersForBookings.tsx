@@ -1,37 +1,222 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+
+interface Booking {
+  id: number;
+  guest_name: string;
+  room_number: string;
+  check_in_date: string;
+  check_out_date: string;
+  status_name: string;
+  total_amount: number;
+  room_id: number;
+  number_of_guests: number;
+  special_requests: string;
+}
+
+interface Room {
+  id: number;
+  room_number: string;
+}
 
 const RecentOrdersForBookings = () => {
-  const bookings = [
-    { clientName: "Ardian Hoxha", roomNumber: 101, date: "2025-01-15", status: "Confirmed" },
-    { clientName: "Maria Garcia", roomNumber: 205, date: "2025-01-16", status: "Confirmed" },
-    { clientName: "John Smith", roomNumber: 312, date: "2025-01-17", status: "Pending" },
-    { clientName: "Anna Kowalski", roomNumber: 108, date: "2025-01-18", status: "Confirmed" },
-    { clientName: "Carlos Rodriguez", roomNumber: 401, date: "2025-01-19", status: "Cancelled" },
-    { clientName: "Sarah Johnson", roomNumber: 203, date: "2025-01-20", status: "Confirmed" },
-    { clientName: "Michael Brown", roomNumber: 507, date: "2025-01-21", status: "Pending" },
-    { clientName: "Elena Petrova", roomNumber: 304, date: "2025-01-22", status: "Confirmed" },
-    { clientName: "David Wilson", roomNumber: 601, date: "2025-01-23", status: "Confirmed" },
-    { clientName: "Lisa Anderson", roomNumber: 409, date: "2025-01-24", status: "Pending" },
-    { clientName: "Robert Taylor", roomNumber: 215, date: "2025-01-25", status: "Confirmed" },
-    { clientName: "Sofia Martinez", roomNumber: 308, date: "2025-01-26", status: "Confirmed" },
-    { clientName: "James Lee", roomNumber: 502, date: "2025-01-27", status: "Cancelled" },
-    { clientName: "Emma Davis", roomNumber: 117, date: "2025-01-28", status: "Confirmed" },
-    { clientName: "Thomas Miller", roomNumber: 406, date: "2025-01-29", status: "Pending" },
-    { clientName: "Isabella White", roomNumber: 209, date: "2025-01-30", status: "Confirmed" },
-    { clientName: "Daniel Clark", roomNumber: 513, date: "2025-01-31", status: "Confirmed" },
-    { clientName: "Olivia Hall", roomNumber: 301, date: "2025-02-01", status: "Pending" },
-    { clientName: "William Turner", roomNumber: 604, date: "2025-02-02", status: "Confirmed" },
-    { clientName: "Ava Moore", roomNumber: 207, date: "2025-02-03", status: "Confirmed" }
-  ];
-
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Modal state
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    room_id: "",
+    check_in_date: "",
+    check_out_date: "",
+    number_of_guests: 1,
+    special_requests: "",
+  });
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createLoading, setCreateLoading] = useState(false);
+
+  // Delete Booking State
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Edit Booking State
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState({
+    room_id: "",
+    check_in_date: "",
+    check_out_date: "",
+    number_of_guests: 1,
+    special_requests: "",
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchBookings();
+    fetchRooms();
+  }, []);
+
+  const fetchBookings = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("jwtToken");
+      const res = await axios.get("http://localhost:8000/api/bookings", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setBookings(res.data.data || []);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Failed to fetch bookings");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRooms = async () => {
+    try {
+      const token = localStorage.getItem("jwtToken");
+      const res = await axios.get("http://localhost:8000/rooms", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setRooms(res.data.data || []);
+    } catch (err) {
+      // ignore for now
+    }
+  };
+
+  // Create Booking Handlers
+  const openCreateModal = () => {
+    setCreateForm({
+      room_id: rooms.length > 0 ? String(rooms[0].id) : "",
+      check_in_date: "",
+      check_out_date: "",
+      number_of_guests: 1,
+      special_requests: "",
+    });
+    setCreateError(null);
+    setShowCreateModal(true);
+  };
+  const closeCreateModal = () => setShowCreateModal(false);
+
+  const handleCreateChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setCreateForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateLoading(true);
+    setCreateError(null);
+    try {
+      const token = localStorage.getItem("jwtToken");
+      await axios.post(
+        "http://localhost:8000/api/bookings",
+        {
+          room_id: Number(createForm.room_id),
+          check_in_date: createForm.check_in_date,
+          check_out_date: createForm.check_out_date,
+          number_of_guests: Number(createForm.number_of_guests),
+          special_requests: createForm.special_requests,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      closeCreateModal();
+      fetchBookings();
+    } catch (err: any) {
+      setCreateError(err.response?.data?.message || "Failed to create booking");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  // Delete Booking Handlers
+  const openDeleteModal = (id: number) => {
+    setDeleteId(id);
+    setDeleteError(null);
+  };
+  const closeDeleteModal = () => {
+    setDeleteId(null);
+    setDeleteError(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    setDeleteLoading(true);
+    setDeleteError(null);
+    try {
+      const token = localStorage.getItem("jwtToken");
+      await axios.delete(`http://localhost:8000/api/bookings/${deleteId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      closeDeleteModal();
+      fetchBookings();
+    } catch (err: any) {
+      setDeleteError(err.response?.data?.message || "Failed to delete booking");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  // Edit Booking Handlers
+  const openEditModal = (booking: Booking) => {
+    setEditId(booking.id);
+    setEditForm({
+      room_id: String(booking.room_id),
+      check_in_date: booking.check_in_date.slice(0, 10),
+      check_out_date: booking.check_out_date.slice(0, 10),
+      number_of_guests: booking.number_of_guests,
+      special_requests: booking.special_requests || "",
+    });
+    setEditError(null);
+  };
+  const closeEditModal = () => {
+    setEditId(null);
+    setEditError(null);
+  };
+
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editId) return;
+    setEditLoading(true);
+    setEditError(null);
+    try {
+      const token = localStorage.getItem("jwtToken");
+      await axios.put(
+        `http://localhost:8000/api/bookings/${editId}`,
+        {
+          room_id: Number(editForm.room_id),
+          check_in_date: editForm.check_in_date,
+          check_out_date: editForm.check_out_date,
+          number_of_guests: Number(editForm.number_of_guests),
+          special_requests: editForm.special_requests,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      closeEditModal();
+      fetchBookings();
+    } catch (err: any) {
+      setEditError(err.response?.data?.message || "Failed to update booking");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  // Filtered bookings
   const filteredBookings = bookings.filter(
     (booking) =>
-      booking.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.roomNumber.toString().includes(searchTerm)
+      booking.guest_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.room_number?.toString().includes(searchTerm)
   );
 
   // Pagination logic
@@ -40,17 +225,114 @@ const RecentOrdersForBookings = () => {
   const currentBookings = filteredBookings.slice(indexOfFirstItem, indexOfLastItem);
   const totalPages = Math.ceil(filteredBookings.length / itemsPerPage);
 
-  const handlePageChange = (pageNumber: number) => {
-    setCurrentPage(pageNumber);
-  };
+  // Statistics
+  const total = bookings.length;
+  const confirmed = bookings.filter((b) => b.status_name === "Confirmed").length;
+  const pending = bookings.filter((b) => b.status_name === "Pending").length;
+  const cancelled = bookings.filter((b) => b.status_name === "Cancelled").length;
 
   return (
     <div className="space-y-6 p-6">
       {/* Header Section */}
-      <div className="flex flex-col gap-2">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Manage Bookings</h2>
-        <p className="text-gray-600 dark:text-gray-400">Lista e rezervimeve të fundit</p>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Manage Bookings</h2>
+          <p className="text-gray-600 dark:text-gray-400">Latest bookings in the system</p>
+        </div>
+        <button
+          className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+          onClick={openCreateModal}
+        >
+          + Create Booking
+        </button>
       </div>
+
+      {/* Create Booking Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-white/30">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-md p-6 relative">
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700"
+              onClick={closeCreateModal}
+            >
+              &times;
+            </button>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Create Booking</h3>
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Room</label>
+                <select
+                  name="room_id"
+                  value={createForm.room_id}
+                  onChange={handleCreateChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                  required
+                >
+                  {rooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      Room {room.room_number}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">Check-in</label>
+                  <input
+                    type="date"
+                    name="check_in_date"
+                    value={createForm.check_in_date}
+                    onChange={handleCreateChange}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                    required
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">Check-out</label>
+                  <input
+                    type="date"
+                    name="check_out_date"
+                    value={createForm.check_out_date}
+                    onChange={handleCreateChange}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Number of Guests</label>
+                <input
+                  type="number"
+                  name="number_of_guests"
+                  min={1}
+                  value={createForm.number_of_guests}
+                  onChange={handleCreateChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Special Requests</label>
+                <textarea
+                  name="special_requests"
+                  value={createForm.special_requests}
+                  onChange={handleCreateChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                  rows={2}
+                />
+              </div>
+              {createError && <div className="text-red-500 text-sm">{createError}</div>}
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-brand-500 px-4 py-2 text-white font-medium hover:bg-brand-600 disabled:opacity-60"
+                disabled={createLoading}
+              >
+                {createLoading ? "Creating..." : "Create Booking"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Booking Statistics Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-4">
@@ -58,7 +340,7 @@ const RecentOrdersForBookings = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Bookings</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{bookings.length}</h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{total}</h3>
             </div>
             <div className="rounded-full bg-blue-100 p-3 dark:bg-blue-900">
               <svg className="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -67,14 +349,11 @@ const RecentOrdersForBookings = () => {
             </div>
           </div>
         </div>
-
         <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Confirmed</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {bookings.filter(booking => booking.status === "Confirmed").length}
-              </h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{confirmed}</h3>
             </div>
             <div className="rounded-full bg-green-100 p-3 dark:bg-green-900">
               <svg className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,14 +362,11 @@ const RecentOrdersForBookings = () => {
             </div>
           </div>
         </div>
-
         <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {bookings.filter(booking => booking.status === "Pending").length}
-              </h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{pending}</h3>
             </div>
             <div className="rounded-full bg-yellow-100 p-3 dark:bg-yellow-900">
               <svg className="h-6 w-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,14 +375,11 @@ const RecentOrdersForBookings = () => {
             </div>
           </div>
         </div>
-        
         <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Cancelled</p>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                {bookings.filter(booking => booking.status === "Cancelled").length}
-              </h3>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{cancelled}</h3>
             </div>
             <div className="rounded-full bg-red-100 p-3 dark:bg-red-900">
               <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -117,6 +390,7 @@ const RecentOrdersForBookings = () => {
         </div>
       </div>
 
+      {/* Search and Pagination Controls */}
       <div className="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -149,112 +423,205 @@ const RecentOrdersForBookings = () => {
           </div>
         </div>
 
+        {/* Table Section */}
         <div className="max-w-full overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="border-b border-gray-100 dark:border-white/[0.05]">
-              <tr>
-                <th className="px-5 py-3 font-medium text-gray-500 text-start">ID</th>
-                <th className="px-5 py-3 font-medium text-gray-500 text-start">Client Name</th>
-                <th className="px-5 py-3 font-medium text-gray-500 text-start">Room</th>
-                <th className="px-5 py-3 font-medium text-gray-500 text-start">Date</th>
-                <th className="px-5 py-3 font-medium text-gray-500 text-start">Status</th>
-                <th className="px-5 py-3 font-medium text-gray-500 text-start">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-              {currentBookings.length > 0 ? (
-                currentBookings.map((booking, idx) => (
-                  <tr key={idx}>
-                    <td className="px-5 py-4 text-start font-medium">{indexOfFirstItem + idx + 1}</td>
-                    <td className="px-5 py-4 text-start">{booking.clientName}</td>
-                    <td className="px-5 py-4 text-start">
-                      <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-800 dark:bg-gray-800 dark:text-gray-200">
-                        Room {booking.roomNumber}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-start">
-                      {new Date(booking.date).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </td>
-                    <td className="px-5 py-4 text-start">
-                      <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                        ${booking.status === "Confirmed" ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                          booking.status === "Pending" ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                          'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
-                        {booking.status}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-start">
-                      <div className="flex space-x-2">
-                        <button className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
-                          Edit
-                        </button>
-                        <button className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600">
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
+          {loading ? (
+            <div className="p-6 text-center text-gray-500">Loading bookings...</div>
+          ) : error ? (
+            <div className="p-6 text-center text-red-500">{error}</div>
+          ) : (
+            <table className="min-w-full">
+              <thead className="border-b border-gray-100 dark:border-white/[0.05]">
                 <tr>
-                  <td colSpan={6} className="text-center py-8 text-gray-500 dark:text-gray-400">
-                    <div className="flex flex-col items-center">
-                      <svg className="w-12 h-12 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Nuk u gjetën rezervime për kërkimin tuaj.
-                    </div>
-                  </td>
+                  <th className="px-5 py-3 font-medium text-gray-500 text-start">ID</th>
+                  <th className="px-5 py-3 font-medium text-gray-500 text-start">Guest Name</th>
+                  <th className="px-5 py-3 font-medium text-gray-500 text-start">Room</th>
+                  <th className="px-5 py-3 font-medium text-gray-500 text-start">Check-in</th>
+                  <th className="px-5 py-3 font-medium text-gray-500 text-start">Check-out</th>
+                  <th className="px-5 py-3 font-medium text-gray-500 text-start">Status</th>
+                  <th className="px-5 py-3 font-medium text-gray-500 text-start">Total</th>
+                  <th className="px-5 py-3 font-medium text-gray-500 text-start">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                {currentBookings.length > 0 ? (
+                  currentBookings.map((booking, idx) => (
+                    <tr key={booking.id}>
+                      <td className="px-5 py-4 text-start font-medium">{booking.id}</td>
+                      <td className="px-5 py-4 text-start">{booking.guest_name}</td>
+                      <td className="px-5 py-4 text-start">Room {booking.room_number}</td>
+                      <td className="px-5 py-4 text-start">{new Date(booking.check_in_date).toLocaleDateString()}</td>
+                      <td className="px-5 py-4 text-start">{new Date(booking.check_out_date).toLocaleDateString()}</td>
+                      <td className="px-5 py-4 text-start">
+                        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
+                          ${booking.status_name === "Confirmed" ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                            booking.status_name === "Pending" ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                            'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'}`}>
+                          {booking.status_name}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-start">${booking.total_amount.toFixed(2)}</td>
+                      <td className="px-5 py-4 text-start">
+                        <div className="flex space-x-2">
+                          <button
+                            className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600"
+                            onClick={() => openEditModal(booking)}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600"
+                            onClick={() => openDeleteModal(booking.id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={8} className="px-5 py-4 text-center text-gray-500">No bookings found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="p-4 border-t border-gray-100 dark:border-white/[0.05]">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="text-sm text-gray-600 dark:text-gray-400">
-                Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredBookings.length)} of {filteredBookings.length} entries
-              </div>
-              <div className="flex space-x-1">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-white"
-                >
-                  Previous
-                </button>
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                  <button
-                    key={page}
-                    onClick={() => handlePageChange(page)}
-                    className={`px-3 py-1 border rounded-md ${
-                      currentPage === page
-                        ? "bg-brand-500 text-white border-brand-500"
-                        : "border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-white"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700 dark:text-white"
-                >
-                  Next
-                </button>
-              </div>
+        {/* Pagination Controls */}
+        <div className="flex justify-end items-center gap-2 p-4">
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <button
+              key={page}
+              onClick={() => setCurrentPage(page)}
+              className={`px-3 py-1 rounded-lg text-sm font-medium ${currentPage === page ? 'bg-brand-500 text-white' : 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200'}`}
+            >
+              {page}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Delete Booking Modal */}
+      {deleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-white/30">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-sm p-6 relative">
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700"
+              onClick={closeDeleteModal}
+            >
+              &times;
+            </button>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Delete Booking</h3>
+            <p className="mb-4 text-gray-700 dark:text-gray-300">Are you sure you want to delete this booking?</p>
+            {deleteError && <div className="text-red-500 text-sm mb-2">{deleteError}</div>}
+            <div className="flex gap-2">
+              <button
+                className="flex-1 rounded-lg bg-gray-200 px-4 py-2 text-gray-800 font-medium hover:bg-gray-300"
+                onClick={closeDeleteModal}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="flex-1 rounded-lg bg-red-500 px-4 py-2 text-white font-medium hover:bg-red-600 disabled:opacity-60"
+                onClick={handleDelete}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? "Deleting..." : "Delete"}
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* Edit Booking Modal */}
+      {editId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-white/30">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-md p-6 relative">
+            <button
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700"
+              onClick={closeEditModal}
+            >
+              &times;
+            </button>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Edit Booking</h3>
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Room</label>
+                <select
+                  name="room_id"
+                  value={editForm.room_id}
+                  onChange={handleEditChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                  required
+                >
+                  {rooms.map((room) => (
+                    <option key={room.id} value={room.id}>
+                      Room {room.room_number}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">Check-in</label>
+                  <input
+                    type="date"
+                    name="check_in_date"
+                    value={editForm.check_in_date}
+                    onChange={handleEditChange}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                    required
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-sm font-medium mb-1">Check-out</label>
+                  <input
+                    type="date"
+                    name="check_out_date"
+                    value={editForm.check_out_date}
+                    onChange={handleEditChange}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Number of Guests</label>
+                <input
+                  type="number"
+                  name="number_of_guests"
+                  min={1}
+                  value={editForm.number_of_guests}
+                  onChange={handleEditChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Special Requests</label>
+                <textarea
+                  name="special_requests"
+                  value={editForm.special_requests}
+                  onChange={handleEditChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                  rows={2}
+                />
+              </div>
+              {editError && <div className="text-red-500 text-sm">{editError}</div>}
+              <button
+                type="submit"
+                className="w-full rounded-lg bg-brand-500 px-4 py-2 text-white font-medium hover:bg-brand-600 disabled:opacity-60"
+                disabled={editLoading}
+              >
+                {editLoading ? "Saving..." : "Save Changes"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
