@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import Room from "./layout/RoomStatus";
@@ -19,7 +19,7 @@ import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
-import Bookings from './layout/Bookings.jsx';
+import BookingManagement from "./pages/Bookings";
 import Revenue from './layout/Revenue';
 import Checkins from './layout/Checkins';
 import GuestsBookings from './layout/GuestsBookings';
@@ -34,7 +34,7 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index path="/" element={<Home />} />
             <Route path="/room-status" element={<Room />} />
-            <Route path="/Bookings/Bookings" element={<Bookings />} />
+            <Route path="/bookings" element={<BookingManagement />} />
             <Route path="/Revenue" element={<Revenue />} />
             <Route path="/Checkins" element={<Checkins />} />
             <Route path="/GuestsBookings" element={<GuestsBookings />} />
@@ -43,7 +43,6 @@ export default function App() {
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/blank" element={<Blank />} />
-
 
             {/* Forms */}
             <Route path="/form-elements" element={<FormElements />} />
