@@ -19,6 +19,23 @@ interface Room {
   room_number: string;
 }
 
+// Utility functions for date conversion
+function toDisplayDate(isoDate: string) {
+  if (!isoDate) return '';
+  // Handle ISO strings with time (e.g., 2024-07-20T00:00:00.000Z)
+  const dateObj = new Date(isoDate);
+  if (isNaN(dateObj.getTime())) return isoDate; // fallback if invalid
+  const d = String(dateObj.getDate()).padStart(2, '0');
+  const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+  const y = dateObj.getFullYear();
+  return `${d}/${m}/${y}`;
+}
+function toIsoDate(displayDate: string) {
+  if (!displayDate) return '';
+  const [d, m, y] = displayDate.split('/');
+  return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+}
+
 const RecentOrdersForBookings = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -106,7 +123,13 @@ const RecentOrdersForBookings = () => {
 
   const handleCreateChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setCreateForm((prev) => ({ ...prev, [name]: value }));
+    setCreateForm((prev) => {
+      if (name === 'check_in_date' || name === 'check_out_date') {
+        // Accept dd/mm/yyyy and store as such in state
+        return { ...prev, [name]: value.replace(/[^\d/]/g, '').slice(0, 10) };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
@@ -119,8 +142,8 @@ const RecentOrdersForBookings = () => {
         "http://localhost:8000/api/bookings",
         {
           room_id: Number(createForm.room_id),
-          check_in_date: createForm.check_in_date,
-          check_out_date: createForm.check_out_date,
+          check_in_date: toIsoDate(createForm.check_in_date),
+          check_out_date: toIsoDate(createForm.check_out_date),
           number_of_guests: Number(createForm.number_of_guests),
           special_requests: createForm.special_requests,
         },
@@ -168,8 +191,8 @@ const RecentOrdersForBookings = () => {
     setEditId(booking.id);
     setEditForm({
       room_id: String(booking.room_id),
-      check_in_date: booking.check_in_date.slice(0, 10),
-      check_out_date: booking.check_out_date.slice(0, 10),
+      check_in_date: toDisplayDate(booking.check_in_date),
+      check_out_date: toDisplayDate(booking.check_out_date),
       number_of_guests: booking.number_of_guests,
       special_requests: booking.special_requests || "",
     });
@@ -182,7 +205,12 @@ const RecentOrdersForBookings = () => {
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
+    setEditForm((prev) => {
+      if (name === 'check_in_date' || name === 'check_out_date') {
+        return { ...prev, [name]: value.replace(/[^\d/]/g, '').slice(0, 10) };
+      }
+      return { ...prev, [name]: value };
+    });
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -196,8 +224,8 @@ const RecentOrdersForBookings = () => {
         `http://localhost:8000/api/bookings/${editId}`,
         {
           room_id: Number(editForm.room_id),
-          check_in_date: editForm.check_in_date,
-          check_out_date: editForm.check_out_date,
+          check_in_date: toIsoDate(editForm.check_in_date),
+          check_out_date: toIsoDate(editForm.check_out_date),
           number_of_guests: Number(editForm.number_of_guests),
           special_requests: editForm.special_requests,
         },
@@ -279,10 +307,11 @@ const RecentOrdersForBookings = () => {
                 <div className="flex-1">
                   <label className="block text-sm font-medium mb-1">Check-in</label>
                   <input
-                    type="date"
+                    type="text"
                     name="check_in_date"
                     value={createForm.check_in_date}
                     onChange={handleCreateChange}
+                    placeholder="dd/mm/yyyy"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
                     required
                   />
@@ -290,10 +319,11 @@ const RecentOrdersForBookings = () => {
                 <div className="flex-1">
                   <label className="block text-sm font-medium mb-1">Check-out</label>
                   <input
-                    type="date"
+                    type="text"
                     name="check_out_date"
                     value={createForm.check_out_date}
                     onChange={handleCreateChange}
+                    placeholder="dd/mm/yyyy"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
                     required
                   />
@@ -450,8 +480,8 @@ const RecentOrdersForBookings = () => {
                       <td className="px-5 py-4 text-start font-medium">{booking.id}</td>
                       <td className="px-5 py-4 text-start">{booking.guest_name}</td>
                       <td className="px-5 py-4 text-start">Room {booking.room_number}</td>
-                      <td className="px-5 py-4 text-start">{new Date(booking.check_in_date).toLocaleDateString()}</td>
-                      <td className="px-5 py-4 text-start">{new Date(booking.check_out_date).toLocaleDateString()}</td>
+                      <td className="px-5 py-4 text-start">{toDisplayDate(booking.check_in_date)}</td>
+                      <td className="px-5 py-4 text-start">{toDisplayDate(booking.check_out_date)}</td>
                       <td className="px-5 py-4 text-start">
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
                           ${booking.status_name === "Confirmed" ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
@@ -568,10 +598,11 @@ const RecentOrdersForBookings = () => {
                 <div className="flex-1">
                   <label className="block text-sm font-medium mb-1">Check-in</label>
                   <input
-                    type="date"
+                    type="text"
                     name="check_in_date"
                     value={editForm.check_in_date}
                     onChange={handleEditChange}
+                    placeholder="dd/mm/yyyy"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
                     required
                   />
@@ -579,10 +610,11 @@ const RecentOrdersForBookings = () => {
                 <div className="flex-1">
                   <label className="block text-sm font-medium mb-1">Check-out</label>
                   <input
-                    type="date"
+                    type="text"
                     name="check_out_date"
                     value={editForm.check_out_date}
                     onChange={handleEditChange}
+                    placeholder="dd/mm/yyyy"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
                     required
                   />
