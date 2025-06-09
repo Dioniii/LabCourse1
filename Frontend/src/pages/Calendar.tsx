@@ -3,34 +3,198 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { EventInput, DateSelectArg, EventClickArg } from "@fullcalendar/core";
+import { EventInput, EventClickArg, EventContentArg } from "@fullcalendar/core";
 import { Modal } from "../components/ui/modal";
 import { useModal } from "../hooks/useModal";
 import PageMeta from "../components/common/PageMeta";
+import axios from "axios";
+
+interface Room {
+  id: number;
+  room_number: string;
+  room_category: string;
+}
+
+interface Booking {
+  id: number;
+  guest_name: string;
+  room_number: string;
+  check_in_date: string;
+  check_out_date: string;
+  status_name: string;
+  room_id: number;
+}
 
 interface CalendarEvent extends EventInput {
   extendedProps: {
     calendar: string;
+    bookings: Booking[];
+    isAvailable: boolean;
   };
 }
 
 const Calendar: React.FC = () => {
-  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(
-    null
-  );
-  const [eventTitle, setEventTitle] = useState("");
-  const [eventStartDate, setEventStartDate] = useState("");
-  const [eventEndDate, setEventEndDate] = useState("");
-  const [eventLevel, setEventLevel] = useState("");
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
 
-  const calendarsEvents = {
-    Danger: "danger",
-    Success: "success",
-    Primary: "primary",
-    Warning: "warning",
+  const fetchRooms = async () => {
+    try {
+      const token = localStorage.getItem("jwtToken");
+      const response = await axios.get("http://localhost:8000/rooms", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setRooms(response.data.data || []);
+    } catch (error) {
+      console.error("Failed to fetch rooms:", error);
+    }
+  };
+
+  const fetchBookings = async () => {
+    try {
+      const token = localStorage.getItem("jwtToken");
+      const response = await axios.get("http://localhost:8000/api/bookings", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const bookings = response.data.data || [];
+
+      // Add fully booked dates for June 10-15
+      const fullyBookedDateRanges = [
+        { start: "2024-06-10", end: "2024-06-15" }
+      ];
+
+      // Get today's date and set up date range
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Show calendar for 6 months before and 12 months ahead (18 months total)
+      const startDate = new Date(today.getFullYear(), today.getMonth() - 6, 1);
+      const endDate = new Date(today.getFullYear(), today.getMonth() + 12, 0);
+
+      // Function to get all dates between start and end
+      const getDatesInRange = (startDate: string, endDate: string) => {
+        const dates = [];
+        const currentDate = new Date(startDate);
+        const end = new Date(endDate);
+        
+        while (currentDate <= end) {
+          dates.push(currentDate.toISOString().split('T')[0]);
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        return dates;
+      };
+
+      // Add past dates as fully booked
+      const pastDates = getDatesInRange(startDate.toISOString().split('T')[0], today.toISOString().split('T')[0]);
+      pastDates.forEach(date => {
+        if (!bookings.some((booking: Booking) => booking.check_in_date === date)) {
+          rooms.forEach(room => {
+            bookings.push({
+              id: Date.now() + Math.random(),
+              guest_name: "Past Date",
+              room_number: room.room_number,
+              check_in_date: date,
+              check_out_date: date,
+              status_name: "past",
+              room_id: room.id
+            });
+          });
+        }
+      });
+
+      // Add dummy bookings for all dates in the ranges
+      fullyBookedDateRanges.forEach(range => {
+        const datesInRange = getDatesInRange(range.start, range.end);
+        datesInRange.forEach(date => {
+          if (!bookings.some((booking: Booking) => booking.check_in_date === date)) {
+            rooms.forEach(room => {
+              bookings.push({
+                id: Date.now() + Math.random(),
+                guest_name: "Reserved",
+                room_number: room.room_number,
+                check_in_date: date,
+                check_out_date: date,
+                status_name: "confirmed",
+                room_id: room.id
+              });
+            });
+          }
+        });
+      });
+
+      // Group bookings by date, including all dates between check-in and check-out
+      const bookingsByDate: { [key: string]: Booking[] } = {};
+      
+      bookings.forEach((booking: Booking) => {
+        const datesInBooking = getDatesInRange(booking.check_in_date, booking.check_out_date);
+        datesInBooking.forEach(date => {
+          if (!bookingsByDate[date]) {
+            bookingsByDate[date] = [];
+          }
+          bookingsByDate[date].push(booking);
+        });
+      });
+
+      // Get all dates for the date range
+      const allDates = getDatesInRange(
+        startDate.toISOString().split('T')[0],
+        endDate.toISOString().split('T')[0]
+      );
+
+      // Convert bookings to calendar events
+      const calendarEvents: CalendarEvent[] = allDates.map(date => {
+        const eventDate = new Date(date);
+        const isPastDate = eventDate < today;
+        const dateBookings = bookingsByDate[date] || [];
+
+        // For past dates, always show as unavailable with grey styling
+        if (isPastDate) {
+          return {
+            id: date,
+            title: 'Past Date',
+            start: date,
+            end: date,
+            extendedProps: {
+              calendar: "Past",
+              isAvailable: false,
+              bookings: dateBookings
+            },
+            backgroundColor: '#E5E7EB',
+            borderColor: '#D1D5DB',
+            textColor: '#666666',
+            display: 'block'
+          };
+        }
+
+        // Count unique booked rooms for this date
+        const bookedRoomIds = new Set(dateBookings.map((booking: Booking) => booking.room_id));
+        const isAvailable = rooms.length > bookedRoomIds.size;
+
+        return {
+          id: date,
+          title: isAvailable ? 
+            `${rooms.length - bookedRoomIds.size} rooms available` : 
+            'No rooms available',
+          start: date,
+          end: date,
+          extendedProps: {
+            calendar: isAvailable ? "Success" : "Danger",
+            isAvailable: isAvailable,
+            bookings: dateBookings
+          },
+          backgroundColor: isAvailable ? '#22c55e' : '#dc2626',
+          borderColor: isAvailable ? '#16a34a' : '#b91c1c',
+          textColor: '#ffffff',
+          display: 'block'
+        };
+      });
+
+      setEvents(calendarEvents);
+    } catch (error) {
+      console.error("Failed to fetch bookings:", error);
+    }
   };
 
   useEffect(() => {
@@ -38,246 +202,312 @@ const Calendar: React.FC = () => {
     setEvents([
       {
         id: "1",
-        title: "Event Conf.",
-        start: new Date().toISOString().split("T")[0],
-        extendedProps: { calendar: "Danger" },
+        title: "No rooms available",
+        start: "2024-06-09",
+        extendedProps: { 
+          calendar: "Danger",
+          isAvailable: false,
+          bookings: []
+        },
+        backgroundColor: '#dc2626',
+        borderColor: '#b91c1c',
+        textColor: '#ffffff'
       },
       {
         id: "2",
-        title: "Meeting",
-        start: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-        extendedProps: { calendar: "Success" },
+        title: "No rooms available",
+        start: "2024-06-10",
+        extendedProps: { 
+          calendar: "Danger",
+          isAvailable: false,
+          bookings: []
+        },
+        backgroundColor: '#dc2626',
+        borderColor: '#b91c1c',
+        textColor: '#ffffff'
       },
       {
         id: "3",
-        title: "Workshop",
-        start: new Date(Date.now() + 172800000).toISOString().split("T")[0],
-        end: new Date(Date.now() + 259200000).toISOString().split("T")[0],
-        extendedProps: { calendar: "Primary" },
+        title: "No rooms available",
+        start: "2024-06-11",
+        extendedProps: { 
+          calendar: "Danger",
+          isAvailable: false,
+          bookings: []
+        },
+        backgroundColor: '#dc2626',
+        borderColor: '#b91c1c',
+        textColor: '#ffffff'
+      },
+      {
+        id: "4",
+        title: "No rooms available",
+        start: "2024-06-12",
+        extendedProps: { 
+          calendar: "Danger",
+          isAvailable: false,
+          bookings: []
+        },
+        backgroundColor: '#dc2626',
+        borderColor: '#b91c1c',
+        textColor: '#ffffff'
+      },
+      {
+        id: "5",
+        title: "No rooms available",
+        start: "2024-06-13",
+        extendedProps: { 
+          calendar: "Danger",
+          isAvailable: false,
+          bookings: []
+        },
+        backgroundColor: '#dc2626',
+        borderColor: '#b91c1c',
+        textColor: '#ffffff'
+      },
+      {
+        id: "6",
+        title: "No rooms available",
+        start: "2024-06-14",
+        extendedProps: { 
+          calendar: "Danger",
+          isAvailable: false,
+          bookings: []
+        },
+        backgroundColor: '#dc2626',
+        borderColor: '#b91c1c',
+        textColor: '#ffffff'
+      },
+      {
+        id: "7",
+        title: "No rooms available",
+        start: "2024-06-15",
+        extendedProps: { 
+          calendar: "Danger",
+          isAvailable: false,
+          bookings: []
+        },
+        backgroundColor: '#dc2626',
+        borderColor: '#b91c1c',
+        textColor: '#ffffff'
+      },
+      {
+        id: "8",
+        title: "2 rooms available",
+        start: "2024-06-16",
+        extendedProps: { 
+          calendar: "Success",
+          isAvailable: true,
+          bookings: []
+        },
+        backgroundColor: '#22c55e',
+        borderColor: '#16a34a',
+        textColor: '#ffffff'
       },
     ]);
   }, []);
 
-  const handleDateSelect = (selectInfo: DateSelectArg) => {
-    resetModalFields();
-    setEventStartDate(selectInfo.startStr);
-    setEventEndDate(selectInfo.endStr || selectInfo.startStr);
-    openModal();
-  };
+  useEffect(() => {
+    fetchRooms();
+  }, []);
+
+  useEffect(() => {
+    if (rooms.length > 0) {
+      fetchBookings();
+      // Refresh bookings every minute
+      const intervalId = setInterval(fetchBookings, 60000);
+      return () => clearInterval(intervalId);
+    }
+  }, [rooms]);
 
   const handleEventClick = (clickInfo: EventClickArg) => {
+    // Prevent clicking on past dates
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eventDate = new Date(clickInfo.event.start as Date);
+    
+    if (eventDate < today) {
+      return; // Don't do anything for past dates
+    }
+
     const event = clickInfo.event;
-    setSelectedEvent(event as unknown as CalendarEvent);
-    setEventTitle(event.title);
-    setEventStartDate(event.start?.toISOString().split("T")[0] || "");
-    setEventEndDate(event.end?.toISOString().split("T")[0] || "");
-    setEventLevel(event.extendedProps.calendar);
+    setSelectedEvent({
+      id: event.id,
+      title: event.title,
+      start: event.start,
+      end: event.end,
+      extendedProps: {
+        calendar: event.extendedProps.calendar,
+        isAvailable: event.extendedProps.isAvailable,
+        bookings: event.extendedProps.bookings
+      }
+    } as CalendarEvent);
     openModal();
   };
 
-  const handleAddOrUpdateEvent = () => {
-    if (selectedEvent) {
-      // Update existing event
-      setEvents((prevEvents) =>
-        prevEvents.map((event) =>
-          event.id === selectedEvent.id
-            ? {
-                ...event,
-                title: eventTitle,
-                start: eventStartDate,
-                end: eventEndDate,
-                extendedProps: { calendar: eventLevel },
-              }
-            : event
-        )
-      );
-    } else {
-      // Add new event
-      const newEvent: CalendarEvent = {
-        id: Date.now().toString(),
-        title: eventTitle,
-        start: eventStartDate,
-        end: eventEndDate,
-        allDay: true,
-        extendedProps: { calendar: eventLevel },
-      };
-      setEvents((prevEvents) => [...prevEvents, newEvent]);
-    }
-    closeModal();
-    resetModalFields();
+  const renderEventContent = (eventInfo: EventContentArg) => {
+    const isAvailable = eventInfo.event.extendedProps.isAvailable;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const eventDate = new Date(eventInfo.event.start as Date);
+    const isPastDate = eventDate < today;
+
+    const availabilityText = isPastDate ? 'Past Date' : 
+      isAvailable ? `${eventInfo.event.title}` : 
+      'No rooms available';
+    
+    return (
+      <div className={`h-full w-full flex items-center justify-center p-2 ${isPastDate ? 'cursor-not-allowed opacity-50' : ''}`}>
+        <div className="text-center">
+          <div className="text-sm font-medium">
+            {availabilityText}
+          </div>
+          <div className="text-xs">
+            {isPastDate ? 'Not Available' : 
+              isAvailable ? 'Available for Booking' : 'Not Available'}
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  const resetModalFields = () => {
-    setEventTitle("");
-    setEventStartDate("");
-    setEventEndDate("");
-    setEventLevel("");
-    setSelectedEvent(null);
+  // Function to get available rooms for a date
+  const getAvailableRooms = (dateBookings: Booking[]) => {
+    const bookedRoomIds = new Set(dateBookings.map(booking => booking.room_id));
+    return rooms.filter(room => !bookedRoomIds.has(room.id));
   };
 
   return (
     <>
-      <PageMeta
-        title="React.js Calendar Dashboard | TailAdmin - Next.js Admin Dashboard Template"
-        description="This is React.js Calendar Dashboard page for TailAdmin - React.js Tailwind CSS Admin Dashboard Template"
-      />
-      <div className="rounded-2xl border  border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+      <PageMeta title="Booking Calendar" description="View room availability and bookings" />
+      <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
         <div className="custom-calendar">
           <FullCalendar
             ref={calendarRef}
             plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
             headerToolbar={{
-              left: "prev,next addEventButton",
+              left: "prev,next",
               center: "title",
               right: "dayGridMonth",
             }}
-            events={events}
-            selectable={true}
-            select={handleDateSelect}
+            events={events.map(event => {
+              const eventDate = new Date(event.start as string);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const isPastDate = eventDate < today;
+
+              return {
+                ...event,
+                display: 'block',
+                className: isPastDate ? 'past-date' : '',
+                backgroundColor: isPastDate ? '#E5E7EB' : event.backgroundColor,
+                borderColor: isPastDate ? '#D1D5DB' : event.borderColor
+              };
+            })}
             eventClick={handleEventClick}
             eventContent={renderEventContent}
-            customButtons={{
-              addEventButton: {
-                text: "Add Event +",
-                click: openModal,
-              },
+            height="auto"
+            dayMaxEvents={1}
+            aspectRatio={2}
+            dayCellClassNames={(arg) => {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              return arg.date < today ? 'past-date' : '';
             }}
           />
         </div>
         <Modal
           isOpen={isOpen}
           onClose={closeModal}
-          className="max-w-[700px] p-6 lg:p-10"
+          className="max-w-[600px] p-6 lg:p-8"
         >
-          <div className="flex flex-col px-2 overflow-y-auto custom-scrollbar">
-            <div>
-              <h5 className="mb-2 font-semibold text-gray-800 modal-title text-theme-xl dark:text-white/90 lg:text-2xl">
-                {selectedEvent ? "Edit Event" : "Add Event"}
-              </h5>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Plan your next big moment: schedule or edit an event to stay on
-                track
-              </p>
-            </div>
-            <div className="mt-8">
-              <div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                    Event Title
-                  </label>
-                  <input
-                    id="event-title"
-                    type="text"
-                    value={eventTitle}
-                    onChange={(e) => setEventTitle(e.target.value)}
-                    className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                  />
+          {selectedEvent && (
+            <div className="space-y-4">
+              <h3 className="text-xl font-semibold">
+                Room Availability Details
+              </h3>
+              <div className="space-y-4">
+                <div className={`p-4 rounded-lg ${
+                  selectedEvent.extendedProps.isAvailable ? 
+                  'bg-green-500 bg-opacity-10' : 
+                  'bg-red-500 bg-opacity-10'
+                }`}>
+                  <p className="font-medium">Date: {new Date(selectedEvent.start as string).toLocaleDateString()}</p>
+                  <p className={`text-sm mt-2 font-medium ${
+                    selectedEvent.extendedProps.isAvailable ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    Status: {selectedEvent.extendedProps.isAvailable ? 'Available for Booking' : 'Fully Booked'}
+                  </p>
                 </div>
-              </div>
-              <div className="mt-6">
-                <label className="block mb-4 text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Event Color
-                </label>
-                <div className="flex flex-wrap items-center gap-4 sm:gap-5">
-                  {Object.entries(calendarsEvents).map(([key, value]) => (
-                    <div key={key} className="n-chk">
-                      <div
-                        className={`form-check form-check-${value} form-check-inline`}
-                      >
-                        <label
-                          className="flex items-center text-sm text-gray-700 form-check-label dark:text-gray-400"
-                          htmlFor={`modal${key}`}
+
+                {selectedEvent.extendedProps.isAvailable ? (
+                  // Show available rooms
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-medium mb-3">Available Rooms</h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      {getAvailableRooms(selectedEvent.extendedProps.bookings).map((room) => (
+                        <div 
+                          key={room.id} 
+                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg dark:bg-gray-800"
                         >
-                          <span className="relative">
-                            <input
-                              className="sr-only form-check-input"
-                              type="radio"
-                              name="event-level"
-                              value={key}
-                              id={`modal${key}`}
-                              checked={eventLevel === key}
-                              onChange={() => setEventLevel(key)}
-                            />
-                            <span className="flex items-center justify-center w-5 h-5 mr-2 border border-gray-300 rounded-full box dark:border-gray-700">
-                              <span
-                                className={`h-2 w-2 rounded-full bg-white ${
-                                  eventLevel === key ? "block" : "hidden"
-                                }`}
-                              ></span>
-                            </span>
+                          <div className="flex items-center space-x-3">
+                            <div className="flex-shrink-0 w-2 h-2 bg-green-500 rounded-full"></div>
+                            <span className="text-sm font-medium">Room {room.room_number}</span>
+                          </div>
+                          <span className="text-sm text-gray-600 dark:text-gray-300 capitalize">
+                            {room.room_category}
                           </span>
-                          {key}
-                        </label>
-                      </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ) : (
+                  // Show current bookings
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-medium mb-3">Current Bookings</h4>
+                    <div className="space-y-4">
+                      {selectedEvent.extendedProps.bookings.map((booking: Booking, index: number) => (
+                        <div key={booking.id} className={`${
+                          index !== selectedEvent.extendedProps.bookings.length - 1 ? 'pb-4 border-b' : ''
+                        }`}>
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Guest</span>
+                              <span className="text-sm">{booking.guest_name}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Room</span>
+                              <span className="text-sm">{booking.room_number}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Check-in</span>
+                              <span className="text-sm">{new Date(booking.check_in_date).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium">Check-out</span>
+                              <span className="text-sm">{new Date(booking.check_out_date).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-
-              <div className="mt-6">
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Enter Start Date
-                </label>
-                <div className="relative">
-                  <input
-                    id="event-start-date"
-                    type="date"
-                    value={eventStartDate}
-                    onChange={(e) => setEventStartDate(e.target.value)}
-                    className="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pl-4 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <label className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
-                  Enter End Date
-                </label>
-                <div className="relative">
-                  <input
-                    id="event-end-date"
-                    type="date"
-                    value={eventEndDate}
-                    onChange={(e) => setEventEndDate(e.target.value)}
-                    className="dark:bg-dark-900 h-11 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-4 py-2.5 pl-4 pr-11 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800"
-                  />
-                </div>
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={closeModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Close
+                </button>
               </div>
             </div>
-            <div className="flex items-center gap-3 mt-6 modal-footer sm:justify-end">
-              <button
-                onClick={closeModal}
-                type="button"
-                className="flex w-full justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] sm:w-auto"
-              >
-                Close
-              </button>
-              <button
-                onClick={handleAddOrUpdateEvent}
-                type="button"
-                className="btn btn-success btn-update-event flex w-full justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto"
-              >
-                {selectedEvent ? "Update Changes" : "Add Event"}
-              </button>
-            </div>
-          </div>
+          )}
         </Modal>
       </div>
     </>
-  );
-};
-
-const renderEventContent = (eventInfo: any) => {
-  const colorClass = `fc-bg-${eventInfo.event.extendedProps.calendar.toLowerCase()}`;
-  return (
-    <div
-      className={`event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm`}
-    >
-      <div className="fc-daygrid-event-dot"></div>
-      <div className="fc-event-time">{eventInfo.timeText}</div>
-      <div className="fc-event-title">{eventInfo.event.title}</div>
-    </div>
   );
 };
 
