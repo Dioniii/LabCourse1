@@ -423,7 +423,7 @@ const RecentOrdersForBookings = () => {
         <div className="rounded-xl border border-gray-200 bg-white p-4 dark:border-white/[0.05] dark:bg-white/[0.03]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Confirmed</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Checked-IN</p>
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{confirmed}</h3>
             </div>
             <div className="rounded-full bg-green-100 p-3 dark:bg-green-900">
