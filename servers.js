@@ -1146,3 +1146,87 @@ app.get("/api/my-bookings", authenticateJWT, async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+
+// UPDATE BOOKING STATUS (Check-in/Check-out)
+app.put("/api/bookings/:id/status", authenticateJWT, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status_id, notes } = req.body;
+    
+    const pool = await poolPromise;
+    
+    // Start a transaction
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+    
+    try {
+      // Get booking details
+      const bookingCheck = await pool.request()
+        .input("id", sql.Int, id)
+        .query(`
+          SELECT b.*, r.id as room_id
+          FROM HotelManagement.dbo.bookings b
+          JOIN HotelManagement.dbo.rooms r ON b.room_id = r.id
+          WHERE b.id = @id
+        `);
+        
+      if (bookingCheck.recordset.length === 0) {
+        await transaction.rollback();
+        return res.status(404).json({ success: false, message: "Booking not found" });
+      }
+
+      // Update booking status
+      await pool.request()
+        .input("id", sql.Int, id)
+        .input("status_id", sql.Int, status_id)
+        .input("notes", sql.VarChar(sql.MAX), notes)
+        .query(`
+          UPDATE HotelManagement.dbo.bookings
+          SET 
+            status_id = @status_id,
+            notes = @notes,
+            updated_at = GETDATE()
+          WHERE id = @id
+        `);
+
+      // If checking out (status_id = 4), update room status to Maintenance
+      if (status_id === 4) {
+        // Get maintenance status ID
+        const maintenanceStatus = await pool.request()
+          .query(`SELECT id FROM HotelManagement.dbo.room_statuses WHERE name = 'Maintenance'`);
+        
+        if (maintenanceStatus.recordset.length === 0) {
+          await transaction.rollback();
+          return res.status(500).json({ success: false, message: "Maintenance status not found" });
+        }
+
+        await pool.request()
+          .input("room_id", sql.Int, bookingCheck.recordset[0].room_id)
+          .input("status_id", sql.Int, maintenanceStatus.recordset[0].id)
+          .input("maintenance_notes", sql.VarChar(sql.MAX), "Room needs cleaning and maintenance after check-out")
+          .query(`
+            UPDATE HotelManagement.dbo.rooms
+            SET 
+              status_id = @status_id,
+              maintenance_notes = @maintenance_notes
+            WHERE id = @room_id
+          `);
+      }
+
+      // Commit the transaction
+      await transaction.commit();
+
+      res.json({
+        success: true,
+        message: "Booking status updated successfully"
+      });
+    } catch (error) {
+      // If there's an error, rollback the transaction
+      await transaction.rollback();
+      throw error;
+    }
+  } catch (error) {
+    console.error("Error updating booking status:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});

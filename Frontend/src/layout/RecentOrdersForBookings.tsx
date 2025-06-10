@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 
 interface Booking {
   id: number;
@@ -87,9 +87,14 @@ const RecentOrdersForBookings = () => {
       const res = await axios.get("http://localhost:8000/api/bookings", {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setBookings(res.data.data || []);
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to fetch bookings");
+      // Filter out completed bookings
+      const activeBookings = (res.data.data || []).filter(
+        (booking: Booking) => booking.status_name !== "Completed"
+      );
+      setBookings(activeBookings);
+    } catch (error) {
+      const axiosError = error as AxiosError<{ error: string }>;
+      setError(axiosError.response?.data?.error || "Failed to fetch bookings");
     } finally {
       setLoading(false);
     }
@@ -151,8 +156,9 @@ const RecentOrdersForBookings = () => {
       );
       closeCreateModal();
       fetchBookings();
-    } catch (err: any) {
-      setCreateError(err.response?.data?.message || "Failed to create booking");
+    } catch (err) {
+      const error = err as AxiosError<{ message: string }>;
+      setCreateError(error.response?.data?.message || "Failed to create booking");
     } finally {
       setCreateLoading(false);
     }
@@ -179,8 +185,9 @@ const RecentOrdersForBookings = () => {
       });
       closeDeleteModal();
       fetchBookings();
-    } catch (err: any) {
-      setDeleteError(err.response?.data?.message || "Failed to delete booking");
+    } catch (err) {
+      const error = err as AxiosError<{ message: string }>;
+      setDeleteError(error.response?.data?.message || "Failed to delete booking");
     } finally {
       setDeleteLoading(false);
     }
@@ -233,8 +240,9 @@ const RecentOrdersForBookings = () => {
       );
       closeEditModal();
       fetchBookings();
-    } catch (err: any) {
-      setEditError(err.response?.data?.message || "Failed to update booking");
+    } catch (err) {
+      const error = err as AxiosError<{ message: string }>;
+      setEditError(error.response?.data?.message || "Failed to update booking");
     } finally {
       setEditLoading(false);
     }
@@ -482,7 +490,7 @@ const RecentOrdersForBookings = () => {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                 {currentBookings.length > 0 ? (
-                  currentBookings.map((booking, idx) => (
+                  currentBookings.map((booking) => (
                     <tr key={booking.id}>
                       <td className="px-5 py-4 text-start font-medium">{booking.id}</td>
                       <td className="px-5 py-4 text-start">{booking.user_name}</td>

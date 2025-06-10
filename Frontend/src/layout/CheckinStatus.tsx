@@ -1,75 +1,95 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios, { AxiosError } from "axios";
+
+interface Booking {
+  id: number;
+  user_name: string;
+  room_number: string;
+  check_in_date: string;
+  check_out_date: string;
+  status_name: string;
+  special_requests: string;
+  guest_email: string;
+  room_id: number;
+}
 
 const CheckinStatus = () => {
-  const checkins = [
-    {
-      guestName: "Ardian",
-      roomNumber: 101,
-      checkInDate: "2025-05-28",
-      checkOutDate: "2025-05-30",
-      status: "Pending Check-in",
-      specialRequests: "Late arrival"
-    },
-    {
-      guestName: "Arta",
-      roomNumber: 202,
-      checkInDate: "2025-05-26",
-      checkOutDate: "2025-05-28",
-      status: "Checked-in",
-      specialRequests: "Extra pillows"
-    },
-  ];
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const [showModal, setShowModal] = useState(false);
-  const [modalIdx, setModalIdx] = useState<number | null>(null);
-  const [idNumber, setIdNumber] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
-  const [checkoutIdx, setCheckoutIdx] = useState<number | null>(null);
+  useEffect(() => {
+    fetchBookings();
+  }, []);
 
-  const filteredCheckins = checkins;
-
-  // Handler for check-in/out button (frontend only)
-  const handleAction = (idx: number, status: string) => {
-    if (status === "Pending Check-in") {
-      setModalIdx(idx);
-      setShowModal(true);
-    } else if (status === "Checked-in") {
-      setCheckoutIdx(idx);
-      setShowCheckoutModal(true);
+  const fetchBookings = async () => {
+    try {
+      const token = localStorage.getItem("jwtToken");
+      const response = await axios.get("http://localhost:8000/api/bookings", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      // Filter out completed and cancelled bookings
+      const activeBookings = (response.data.data || []).filter(
+        (booking: Booking) => booking.status_name === "Pending" || booking.status_name === "Confirmed"
+      );
+      setBookings(activeBookings);
+      setError(null);
+    } catch (err) {
+      const error = err as AxiosError<{ message: string }>;
+      setError(error.response?.data?.message || "Failed to fetch bookings");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleModalConfirm = () => {
-    setShowModal(false);
-    setIdNumber("");
-    setPhone("");
-    setEmail("");
-    setModalIdx(null);
+  // Handler for check-in/out button
+  const handleAction = async (booking: Booking, action: 'check-in' | 'check-out') => {
+    try {
+      const token = localStorage.getItem("jwtToken");
+      setError(null); // Clear any existing errors
+      
+      // Update booking status using the new endpoint
+      const response = await axios.put(
+        `http://localhost:8000/api/bookings/${booking.id}/status`,
+        {
+          status_id: action === 'check-in' ? 1 : 4, // 1 for Confirmed, 4 for Completed
+          notes: action === 'check-in' 
+            ? `Checked in at ${new Date().toISOString()}`
+            : `Checked out at ${new Date().toISOString()}`
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+
+      if (response.data.success) {
+        await fetchBookings(); // Refresh the bookings list only on success
+      } else {
+        setError(response.data.message || `Failed to ${action} guest`);
+      }
+    } catch (err) {
+      const error = err as AxiosError<{ message: string }>;
+      setError(error.response?.data?.message || `Failed to ${action} guest`);
+      await fetchBookings(); // Refresh the list even on error to ensure UI is in sync
+    }
   };
 
-  const handleModalClose = () => {
-    setShowModal(false);
-    setIdNumber("");
-    setPhone("");
-    setEmail("");
-    setModalIdx(null);
-  };
-
-  // Checkout modal handlers
-  const handleCheckoutConfirm = () => {
-    setShowCheckoutModal(false);
-    setCheckoutIdx(null);
-  };
-
-  const handleCheckoutClose = () => {
-    setShowCheckoutModal(false);
-    setCheckoutIdx(null);
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
+      {error && (
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+          {error}
+        </div>
+      )}
+      
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-semibold text-gray-900 dark:text-white">
@@ -112,60 +132,56 @@ const CheckinStatus = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredCheckins.length > 0 ? (
-              filteredCheckins.map((item, idx) => (
-                <tr key={idx} className="hover:bg-gray-100 dark:hover:bg-gray-600">
+            {bookings.length > 0 ? (
+              bookings.map((booking, idx) => (
+                <tr key={booking.id} className="hover:bg-gray-100 dark:hover:bg-gray-600">
                   <td className="px-3 py-2 text-gray-900 dark:text-white font-medium">
                     {idx + 1}
                   </td>
                   <td className="px-3 py-2 text-gray-900 dark:text-white">
-                    {item.guestName}
+                    {booking.user_name}
                   </td>
                   <td className="px-3 py-2 text-gray-900 dark:text-white">
-                    {item.roomNumber}
+                    {booking.room_number}
                   </td>
                   <td className="px-3 py-2 text-gray-900 dark:text-white">
-                    {item.checkInDate}
+                    {new Date(booking.check_in_date).toLocaleDateString()}
                   </td>
                   <td className="px-3 py-2 text-gray-900 dark:text-white">
-                    {item.checkOutDate}
+                    {new Date(booking.check_out_date).toLocaleDateString()}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <span
                       className={`px-3 py-1 inline-block rounded-full text-xs font-semibold
                         ${
-                          item.status === "Checked-in"
+                          booking.status_name === "Confirmed"
                             ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
-                            : item.status === "Pending Check-in"
-                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                            : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                            : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
                         }
                       `}
                     >
-                      {item.status}
+                      {booking.status_name}
                     </span>
                   </td>
                   <td className="px-3 py-2 text-gray-900 dark:text-white">
-                    {item.specialRequests || '-'}
+                    {booking.special_requests || "-"}
                   </td>
                   <td className="px-3 py-2">
-                    {item.status === "Pending Check-in" ? (
+                    {booking.status_name === "Pending" ? (
                       <button
-                        onClick={() => handleAction(idx, item.status)}
+                        onClick={() => handleAction(booking, 'check-in')}
                         className="rounded bg-green-600 text-white px-4 py-1 text-xs font-medium hover:bg-green-700 transition-colors min-w-[90px]"
                       >
                         Check-in
                       </button>
-                    ) : item.status === "Checked-in" ? (
+                    ) : booking.status_name === "Confirmed" ? (
                       <button
-                        onClick={() => handleAction(idx, item.status)}
+                        onClick={() => handleAction(booking, 'check-out')}
                         className="rounded bg-red-600 text-white px-4 py-1 text-xs font-medium hover:bg-red-700 transition-colors min-w-[90px]"
                       >
                         Check-out
                       </button>
-                    ) : (
-                      <span className="text-gray-400 text-xs">-</span>
-                    )}
+                    ) : null}
                   </td>
                 </tr>
               ))
@@ -179,108 +195,6 @@ const CheckinStatus = () => {
           </tbody>
         </table>
       </div>
-
-      {/* Modal for Check-in */}
-      {showModal && modalIdx !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/30 backdrop-blur-sm">
-          <div className="relative bg-white rounded-xl shadow-lg p-8 max-w-sm w-full">
-            <button
-              onClick={handleModalClose}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-2xl font-bold focus:outline-none"
-              aria-label="Close"
-            >
-              &times;
-            </button>
-            <h3 className="text-lg font-semibold mb-4 text-gray-900">Guest Check-in Details</h3>
-            <form
-              onSubmit={e => { e.preventDefault(); handleModalConfirm(); }}
-              className="space-y-4"
-            >
-              <div>
-                <label className="block text-sm font-medium mb-1">ID/Passport Number</label>
-                <input
-                  type="text"
-                  value={idNumber}
-                  onChange={e => setIdNumber(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Phone Number</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={e => setPhone(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  required
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
-                />
-              </div>
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={handleModalClose}
-                  className="rounded-lg bg-gray-200 px-4 py-2 text-gray-700 font-medium hover:bg-gray-300 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-green-600 px-4 py-2 text-white font-medium hover:bg-green-700 transition-colors"
-                >
-                  Confirm Check-in
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Modal for Check-out */}
-      {showCheckoutModal && checkoutIdx !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/30 backdrop-blur-sm">
-          <div className="relative bg-white rounded-xl shadow-lg p-8 max-w-sm w-full">
-            <button
-              onClick={handleCheckoutClose}
-              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-2xl font-bold focus:outline-none"
-              aria-label="Close"
-            >
-              &times;
-            </button>
-            <h3 className="text-lg font-semibold mb-4 text-gray-900">Guest Check-out Details</h3>
-            <form
-              onSubmit={e => { e.preventDefault(); handleCheckoutConfirm(); }}
-              className="space-y-4"
-            >
-              <div className="flex justify-end gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={handleCheckoutClose}
-                  className="rounded-lg bg-gray-200 px-4 py-2 text-gray-700 font-medium hover:bg-gray-300 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-red-600 px-4 py-2 text-white font-medium hover:bg-red-700 transition-colors"
-                >
-                  Confirm Check-out
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
