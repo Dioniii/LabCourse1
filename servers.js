@@ -885,7 +885,13 @@ app.post("/api/bookings", authenticateJWT, async (req, res) => {
       number_of_guests,
       special_requests
     } = req.body;
-    if (!room_id || !check_in_date || !check_out_date || !number_of_guests) {
+
+    // Add validation for room_id
+    if (!room_id || isNaN(Number(room_id))) {
+      return res.status(400).json({ success: false, message: "Invalid room_id" });
+    }
+
+    if (!check_in_date || !check_out_date || !number_of_guests) {
       return res.status(400).json({
         success: false,
         message: "Missing required fields: room_id, check_in_date, check_out_date, number_of_guests"
@@ -986,6 +992,12 @@ app.put("/api/bookings/:id", authenticateJWT, async (req, res) => {
       special_requests,
       notes
     } = req.body;
+
+    // Add validation for room_id if present
+    if (room_id !== undefined && (room_id === null || isNaN(Number(room_id)))) {
+      return res.status(400).json({ success: false, message: "Invalid room_id" });
+    }
+
     const pool = await poolPromise;
     // Get booking and room price
     const bookingCheck = await pool.request()
@@ -1188,30 +1200,6 @@ app.put("/api/bookings/:id/status", authenticateJWT, async (req, res) => {
             updated_at = GETDATE()
           WHERE id = @id
         `);
-
-      // If checking out (status_id = 4), update room status to Maintenance
-      if (status_id === 4) {
-        // Get maintenance status ID
-        const maintenanceStatus = await pool.request()
-          .query(`SELECT id FROM HotelManagement.dbo.room_statuses WHERE name = 'Maintenance'`);
-        
-        if (maintenanceStatus.recordset.length === 0) {
-          await transaction.rollback();
-          return res.status(500).json({ success: false, message: "Maintenance status not found" });
-        }
-
-        await pool.request()
-          .input("room_id", sql.Int, bookingCheck.recordset[0].room_id)
-          .input("status_id", sql.Int, maintenanceStatus.recordset[0].id)
-          .input("maintenance_notes", sql.VarChar(sql.MAX), "Room needs cleaning and maintenance after check-out")
-          .query(`
-            UPDATE HotelManagement.dbo.rooms
-            SET 
-              status_id = @status_id,
-              maintenance_notes = @maintenance_notes
-            WHERE id = @room_id
-          `);
-      }
 
       // Commit the transaction
       await transaction.commit();
