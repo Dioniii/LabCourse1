@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios, { AxiosError } from "axios";
+import { loadStripe } from '@stripe/stripe-js';
 
 interface Booking {
   id: number;
@@ -17,6 +18,7 @@ interface Booking {
 interface Room {
   id: number;
   room_number: string;
+  price: number;
 }
 
 // Utility functions for date conversion
@@ -54,8 +56,8 @@ const RecentOrdersForBookings = () => {
     number_of_guests: 1,
     special_requests: "",
   });
-  const [createError, setCreateError] = useState<string | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   // Delete Booking State
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -142,23 +144,47 @@ const RecentOrdersForBookings = () => {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      const token = localStorage.getItem("jwtToken");
-      await axios.post(
-        "http://localhost:8000/api/bookings",
-        {
-          room_id: Number(createForm.room_id),
-          check_in_date: toIsoDate(createForm.check_in_date),
-          check_out_date: toIsoDate(createForm.check_out_date),
-          number_of_guests: Number(createForm.number_of_guests),
-          special_requests: createForm.special_requests,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      closeCreateModal();
-      fetchBookings();
-    } catch (err) {
-      const error = err as AxiosError<{ message: string }>;
-      setCreateError(error.response?.data?.message || "Failed to create booking");
+      const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE || '');
+      if (!stripe) {
+        setCreateError('Stripe failed to load');
+        setCreateLoading(false);
+        return;
+      }
+      const selectedRoom = rooms.find(r => String(r.id) === String(createForm.room_id));
+      const body = {
+        room_id: Number(createForm.room_id),
+        check_in_date: toIsoDate(createForm.check_in_date),
+        check_out_date: toIsoDate(createForm.check_out_date),
+        number_of_guests: Number(createForm.number_of_guests),
+        price: selectedRoom ? selectedRoom.price : undefined,
+        special_requests: createForm.special_requests,
+      };
+      const token = localStorage.getItem('jwtToken');
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      };
+      const response = await fetch('http://localhost:8000/api/bookings', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      if (!data.session_id) {
+        setCreateError(data.message || 'Failed to create booking or session');
+        setCreateLoading(false);
+        return;
+      }
+      // Set a flag in localStorage to show the popup after redirect
+      localStorage.setItem('showPaymentSuccess', 'true');
+      const result = await stripe.redirectToCheckout({
+        sessionId: data.session_id,
+      });
+      if (result && result.error) {
+        setCreateError(result.error.message || 'Unknown error');
+      }
+    } catch (err: any) {
+      setCreateError((err && err.message) ? err.message : 'An error occurred');
     } finally {
       setCreateLoading(false);
     }
