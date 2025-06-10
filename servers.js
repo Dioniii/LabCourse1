@@ -472,7 +472,6 @@ app.get("/rooms", authenticateJWT, async (req, res) => {
       LEFT JOIN HotelManagement.dbo.room_statuses s ON r.status_id = s.id
     `);
 
-    console.log('Rooms from DB:', result.recordset); 
 
     res.status(200).json({ 
       success: true, 
