@@ -277,8 +277,8 @@ const RecentOrdersForBookings = () => {
 
       {/* Create Booking Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-white/30">
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-md p-6 relative">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center backdrop-blur-sm bg-white/30">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-md p-6 relative mt-20">
             <button
               className="absolute top-3 right-3 text-gray-400 hover:text-gray-700"
               onClick={closeCreateModal}
@@ -303,31 +303,29 @@ const RecentOrdersForBookings = () => {
                   ))}
                 </select>
               </div>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium mb-1">Check-in</label>
-                  <input
-                    type="text"
-                    name="check_in_date"
-                    value={createForm.check_in_date}
-                    onChange={handleCreateChange}
-                    placeholder="dd/mm/yyyy"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
-                    required
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium mb-1">Check-out</label>
-                  <input
-                    type="text"
-                    name="check_out_date"
-                    value={createForm.check_out_date}
-                    onChange={handleCreateChange}
-                    placeholder="dd/mm/yyyy"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
-                    required
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Check-in Date</label>
+                <input
+                  type="text"
+                  name="check_in_date"
+                  value={createForm.check_in_date}
+                  onChange={handleCreateChange}
+                  placeholder="dd/mm/yyyy"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Check-out Date</label>
+                <input
+                  type="text"
+                  name="check_out_date"
+                  value={createForm.check_out_date}
+                  onChange={handleCreateChange}
+                  placeholder="dd/mm/yyyy"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                  required
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Number of Guests</label>
@@ -352,13 +350,22 @@ const RecentOrdersForBookings = () => {
                 />
               </div>
               {createError && <div className="text-red-500 text-sm">{createError}</div>}
-              <button
-                type="submit"
-                className="w-full rounded-lg bg-brand-500 px-4 py-2 text-white font-medium hover:bg-brand-600 disabled:opacity-60"
-                disabled={createLoading}
-              >
-                {createLoading ? "Creating..." : "Create Booking"}
-              </button>
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={closeCreateModal}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createLoading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+                >
+                  {createLoading ? "Creating..." : "Create Booking"}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -535,8 +542,8 @@ const RecentOrdersForBookings = () => {
 
       {/* Delete Booking Modal */}
       {deleteId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-white/30">
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-sm p-6 relative">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center backdrop-blur-sm bg-white/30">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-sm p-6 relative mt-20">
             <button
               className="absolute top-3 right-3 text-gray-400 hover:text-gray-700"
               onClick={closeDeleteModal}
@@ -568,8 +575,8 @@ const RecentOrdersForBookings = () => {
 
       {/* Edit Booking Modal */}
       {editId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-white/30">
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-md p-6 relative">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center backdrop-blur-sm bg-white/30">
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-lg w-full max-w-md p-6 relative mt-20">
             <button
               className="absolute top-3 right-3 text-gray-400 hover:text-gray-700"
               onClick={closeEditModal}
