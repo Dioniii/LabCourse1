@@ -25,6 +25,11 @@ const CheckinStatus = () => {
   const [idNumber, setIdNumber] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [checkoutIdx, setCheckoutIdx] = useState<number | null>(null);
+  const [feedback, setFeedback] = useState("");
+  const [balance, setBalance] = useState("");
+  const [confirmCheckout, setConfirmCheckout] = useState(false);
 
   const filteredCheckins = checkins;
 
@@ -34,7 +39,8 @@ const CheckinStatus = () => {
       setModalIdx(idx);
       setShowModal(true);
     } else if (status === "Checked-in") {
-      alert(`Checked out guest at row ${idx + 1}`);
+      setCheckoutIdx(idx);
+      setShowCheckoutModal(true);
     }
   };
 
@@ -55,6 +61,26 @@ const CheckinStatus = () => {
     setPhone("");
     setEmail("");
     setModalIdx(null);
+  };
+
+  // Checkout modal handlers
+  const handleCheckoutConfirm = () => {
+    setShowCheckoutModal(false);
+    alert(
+      `Check-out confirmed for: ${filteredCheckins[checkoutIdx!].guestName}\nFeedback: ${feedback}\nOutstanding Balance: ${balance}\nConfirmed: ${confirmCheckout ? 'Yes' : 'No'}`
+    );
+    setFeedback("");
+    setBalance("");
+    setConfirmCheckout(false);
+    setCheckoutIdx(null);
+  };
+
+  const handleCheckoutClose = () => {
+    setShowCheckoutModal(false);
+    setFeedback("");
+    setBalance("");
+    setConfirmCheckout(false);
+    setCheckoutIdx(null);
   };
 
   return (
@@ -228,6 +254,42 @@ const CheckinStatus = () => {
                   className="rounded-lg bg-green-600 px-4 py-2 text-white font-medium hover:bg-green-700 transition-colors"
                 >
                   Confirm Check-in
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal for Check-out */}
+      {showCheckoutModal && checkoutIdx !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/30 backdrop-blur-sm">
+          <div className="relative bg-white rounded-xl shadow-lg p-8 max-w-sm w-full">
+            <button
+              onClick={handleCheckoutClose}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-2xl font-bold focus:outline-none"
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">Guest Check-out Details</h3>
+            <form
+              onSubmit={e => { e.preventDefault(); handleCheckoutConfirm(); }}
+              className="space-y-4"
+            >
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={handleCheckoutClose}
+                  className="rounded-lg bg-gray-200 px-4 py-2 text-gray-700 font-medium hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-red-600 px-4 py-2 text-white font-medium hover:bg-red-700 transition-colors"
+                >
+                  Confirm Check-out
                 </button>
               </div>
             </form>
