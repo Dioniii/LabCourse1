@@ -58,7 +58,7 @@ export default function RoomTable() {
     room_number: "",
     category_id: 0,
     price: 0,
-    status_id: 8, // Default to Available (id: 8)
+    status_id: 0,
     maintenance_notes: "",
   });
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -109,6 +109,19 @@ export default function RoomTable() {
       }));
     }
   }, [categories]);
+
+  // Initialize newRoom.status_id after statuses are fetched
+  useEffect(() => {
+    if (statuses.length > 0) {
+      const availableStatus = statuses.find(s => s.name === 'Available');
+      if (availableStatus) {
+        setNewRoom(prev => ({
+          ...prev,
+          status_id: availableStatus.id
+        }));
+      }
+    }
+  }, [statuses]);
 
   // In create modal, clear notes if status changes to non-maintenance
   useEffect(() => {
@@ -237,7 +250,7 @@ export default function RoomTable() {
         room_number: "",
         category_id: categories.length > 0 ? categories[0].id : 0,
         price: 0,
-        status_id: 8, // Default to Available (id: 8)
+        status_id: 0,
         maintenance_notes: "",
       });
       closeCreateModal();

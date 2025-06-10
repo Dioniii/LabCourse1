@@ -559,11 +559,24 @@ app.post("/rooms", authenticateJWT, async (req, res) => {
       return res.status(403).json({ success: false, message: "Only admin can create rooms" });
     }
 
+    // Get the Available status ID if status_id is not provided
+    let finalStatusId = status_id;
+    if (!finalStatusId) {
+      const statusResult = await pool.request()
+        .input("statusName", sql.VarChar, "Available")
+        .query("SELECT id FROM HotelManagement.dbo.room_statuses WHERE name = @statusName");
+      
+      if (!statusResult.recordset[0]) {
+        return res.status(500).json({ success: false, message: "Available status not found in room_statuses" });
+      }
+      finalStatusId = statusResult.recordset[0].id;
+    }
+
     await pool.request()
       .input("room_number", sql.VarChar, room_number)
       .input("category_id", sql.Int, category_id)
       .input("price", sql.Decimal(10, 2), price)
-      .input("status_id", sql.Int, status_id || 8) // default: Available (id: 8)
+      .input("status_id", sql.Int, finalStatusId)
       .input("maintenance_notes", sql.VarChar, maintenance_notes || null)
       .query(`
         INSERT INTO HotelManagement.dbo.rooms 
@@ -577,6 +590,7 @@ app.post("/rooms", authenticateJWT, async (req, res) => {
     if (error.originalError?.info?.number === 2627) {
       res.status(400).json({ success: false, message: "Room number already exists" });
     } else {
+      console.error("Error creating room:", error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
