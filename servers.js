@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { sql, poolPromise } = require('./db.js');
 require("dotenv").config();
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const app = express();
 app.use(bodyparser.json());
@@ -969,11 +970,39 @@ app.post("/api/bookings", authenticateJWT, async (req, res) => {
         SELECT SCOPE_IDENTITY() as id;
       `);
     const bookingId = result.recordset[0].id;
-    res.status(201).json({
-      success: true,
-      message: "Booking created successfully",
-      data: { id: bookingId }
-    });
+
+    // Stripe Checkout Session
+    try {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [{
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `Room Booking #${room_id}`,
+              description: `Check-in: ${check_in_date}, Check-out: ${check_out_date}`,
+            },
+            unit_amount: Math.round(total_amount * 100),
+          },
+          quantity: 1,
+        }],
+        mode: 'payment',
+        success_url: 'http://localhost:5173/GuestsBookings',
+        cancel_url: 'http://localhost:5173/GuestsBookings?payment=cancelled',
+        metadata: {
+          bookingId,
+          room_id,
+          check_in_date,
+          check_out_date,
+          number_of_guests,
+          special_requests,
+        }
+      });
+      res.json({ session_id: session.id });
+    } catch (err) {
+      res.status(500).json({ message: err.message });
+    }
+    // End Stripe integration
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

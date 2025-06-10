@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { loadStripe } from '@stripe/stripe-js';
+import { useLocation } from 'react-router-dom';
 
 interface Room {
   id: number;
   room_number: string;
+  price: number;
 }
 
 function toIsoDate(displayDate: string) {
@@ -25,6 +28,8 @@ const RecentGuestsBookings = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const fetchRooms = async () => {
@@ -44,38 +49,91 @@ const RecentGuestsBookings = () => {
     fetchRooms();
   }, []);
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('payment') === 'success') {
+      setSuccess('Payment completed successfully!');
+      // Remove the query param from the URL after showing the alert
+      window.history.replaceState({}, document.title, location.pathname);
+    }
+  }, [location.search]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSuccess(null);
     setError(null);
+    setSuccess(null);
     setLoading(true);
     try {
+      const stripe = await loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE || '');
+        if (!stripe) {
+        setError('Stripe failed to load');
+        setLoading(false);
+        return;
+      }
+      const selectedRoom = rooms.find(r => String(r.id) === String(roomId));
+      const body = {
+        room_id: Number(roomId),
+        check_in_date: toIsoDate(checkIn),
+        check_out_date: toIsoDate(checkOut),
+        number_of_guests: Number(people),
+        price: selectedRoom ? selectedRoom.price : undefined,
+        special_requests: specialRequests,
+      };
       const token = localStorage.getItem('jwtToken');
-      await axios.post(
-        'http://localhost:8000/api/bookings',
-        {
-          room_id: Number(roomId),
-          check_in_date: toIsoDate(checkIn),
-          check_out_date: toIsoDate(checkOut),
-          number_of_guests: Number(people),
-          special_requests: specialRequests,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setSuccess('Booking created successfully!');
-      setCheckIn('');
-      setCheckOut('');
-      setPeople(1);
-      setSpecialRequests('');
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      };
+      const response = await fetch('http://localhost:8000/api/bookings', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(body),
+      });
+      const data = await response.json();
+      if (!data.session_id) {
+        setError(data.message || 'Failed to create booking or session');
+        setLoading(false);
+        return;
+      }
+      // Set a flag in localStorage to show the popup after redirect
+      localStorage.setItem('showPaymentSuccess', 'true');
+      const result = await stripe.redirectToCheckout({
+        sessionId: data.session_id,
+      });
+      if (result && result.error) {
+        setError(result.error.message || 'Unknown error');
+      }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create booking');
+      setError((err && err.message) ? err.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
   };
 
+  // Show popup if payment was successful and user is redirected back
+  useEffect(() => {
+    if (localStorage.getItem('showPaymentSuccess') === 'true') {
+      setShowSuccessModal(true);
+      localStorage.removeItem('showPaymentSuccess');
+    }
+  }, []);
+
   return (
     <div className="max-w-xl mx-auto mt-10">
+      {showSuccessModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 backdrop-blur-sm bg-black/10">
+          <div className="bg-white rounded-lg shadow-lg p-8 max-w-sm w-full text-center">
+            <h3 className="text-xl font-bold mb-4 text-green-600">Payment Successful!</h3>
+            <p className="mb-6">Your payment and booking have been made successfully.</p>
+            <button
+              className="px-6 py-2 bg-brand-500 text-white rounded hover:bg-brand-600 transition-colors"
+              onClick={() => setShowSuccessModal(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
       <h2 className="text-2xl font-bold text-gray-900 mb-6">Guests Bookings Reservation</h2>
       {error && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>
@@ -84,7 +142,7 @@ const RecentGuestsBookings = () => {
         <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">{success}</div>
       )}
       <div className="rounded-xl border border-gray-200 bg-white p-8 shadow-theme-md dark:border-white/[0.05] dark:bg-white/[0.03]">
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form className="space-y-6" onSubmit={handleSubmit}>
           <div>
             <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Room</label>
             <select
@@ -99,6 +157,15 @@ const RecentGuestsBookings = () => {
                 </option>
               ))}
             </select>
+            {roomId && (
+              <div className="mt-2 text-sm text-gray-600">
+                Price: $
+                {(() => {
+                  const selected = rooms.find(r => String(r.id) === String(roomId));
+                  return selected ? selected.price.toFixed(2) : '--';
+                })()}
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -148,7 +215,7 @@ const RecentGuestsBookings = () => {
               className="rounded-lg bg-brand-500 px-6 py-2 text-white font-medium hover:bg-brand-600 transition-colors"
               disabled={loading}
             >
-              {loading ? 'Processing...' : 'Submit'}
+              {loading ? 'Processing...' : 'Continue to Payment'}
             </button>
           </div>
         </form>
