@@ -824,8 +824,6 @@ app.get("/api/bookings", authenticateJWT, async (req, res) => {
         b.notes,
         b.created_at,
         b.updated_at,
-        b.first_name,
-        b.last_name,
         u.first_name + ' ' + u.last_name as user_name,
         u.email as guest_email,
         r.room_number,
