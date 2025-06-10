@@ -27,9 +27,6 @@ const CheckinStatus = () => {
   const [email, setEmail] = useState("");
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [checkoutIdx, setCheckoutIdx] = useState<number | null>(null);
-  const [feedback, setFeedback] = useState("");
-  const [balance, setBalance] = useState("");
-  const [confirmCheckout, setConfirmCheckout] = useState(false);
 
   const filteredCheckins = checkins;
 
@@ -46,9 +43,6 @@ const CheckinStatus = () => {
 
   const handleModalConfirm = () => {
     setShowModal(false);
-    alert(
-      `Check-in confirmed for: ${filteredCheckins[modalIdx!].guestName}\nID/Passport: ${idNumber}\nPhone: ${phone}\nEmail: ${email}`
-    );
     setIdNumber("");
     setPhone("");
     setEmail("");
@@ -66,20 +60,11 @@ const CheckinStatus = () => {
   // Checkout modal handlers
   const handleCheckoutConfirm = () => {
     setShowCheckoutModal(false);
-    alert(
-      `Check-out confirmed for: ${filteredCheckins[checkoutIdx!].guestName}\nFeedback: ${feedback}\nOutstanding Balance: ${balance}\nConfirmed: ${confirmCheckout ? 'Yes' : 'No'}`
-    );
-    setFeedback("");
-    setBalance("");
-    setConfirmCheckout(false);
     setCheckoutIdx(null);
   };
 
   const handleCheckoutClose = () => {
     setShowCheckoutModal(false);
-    setFeedback("");
-    setBalance("");
-    setConfirmCheckout(false);
     setCheckoutIdx(null);
   };
 
