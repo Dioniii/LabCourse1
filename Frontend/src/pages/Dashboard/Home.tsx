@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import RecentOrdersForRooms from "../../layout/RecentOrdersForRooms";
-import RevenueStats from "../../layout/RevenueStats";
 import CheckinStatus from "../../layout/CheckinStatus";
 import BasicTableOne from "../../components/tables/BasicTables/BasicTableOne";
 import Calendar from "../../pages/Calendar";
@@ -43,7 +42,10 @@ export default function Home() {
                 See more →
               </Link>
             </div>
-            <RecentOrdersForBookings />
+            {/* Hide Icons */}
+            <div className="RecentOrdersForBookings [&_svg]:hidden [&_.bg-blue-100]:hidden [&_.bg-green-100]:hidden [&_.bg-yellow-100]:hidden [&_.bg-red-100]:hidden">
+              <RecentOrdersForBookings />
+            </div>
           </div>
 
           <div className="col-span-12 xl:col-span-6 bg-blue-50 rounded-2xl p-5 shadow-md max-h-[280px] overflow-hidden">
@@ -98,22 +100,6 @@ export default function Home() {
             >
               <BasicTableOne />
             </div>
-          </div>
-
-          {/* Rreshti 4: Revenue Stats */}
-          <div className="col-span-12 bg-indigo-50 rounded-2xl p-5 shadow-md max-h-[280px] overflow-hidden">
-            <div className="flex justify-between items-center mb-3">
-              <h2 className="text-base font-semibold text-gray-700">
-                Revenue Overview
-              </h2>
-              <Link
-                to="/Revenue"
-                className="text-sm text-blue-500 hover:text-blue-700 transition"
-              >
-                See more →
-              </Link>
-            </div>
-            <RevenueStats />
           </div>
         </div>
       </div>

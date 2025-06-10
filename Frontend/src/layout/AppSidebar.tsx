@@ -11,7 +11,7 @@ import {
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
 import SidebarWidget from "./SidebarWidget";
-import { Bookmark, Bed, DollarSign, Repeat, ClipboardList } from "lucide-react";
+import { Bookmark, Bed, Repeat, ClipboardList } from "lucide-react";
 
 type NavItem = {
   name: string;
@@ -43,12 +43,6 @@ const navItems: NavItem[] = [
     icon: <Bed className="w-5 h-5 stroke-[1.5]" />,
     name: "Room Status",
     path: "/room-status",
-    parent: "Dashboard",
-  },
-  {
-    icon: <DollarSign className="w-5 h-5 stroke-[1.2]" />,
-    name: "Revenue",
-    path: "/Revenue",
     parent: "Dashboard",
   },
   {

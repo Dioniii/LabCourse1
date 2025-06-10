@@ -20,7 +20,6 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import BookingManagement from "./pages/Bookings";
-import Revenue from './layout/Revenue';
 import Checkins from './layout/Checkins';
 import GuestsBookings from './layout/GuestsBookings';
 
@@ -35,7 +34,6 @@ export default function App() {
             <Route index path="/" element={<Home />} />
             <Route path="/room-status" element={<Room />} />
             <Route path="/bookings" element={<BookingManagement />} />
-            <Route path="/Revenue" element={<Revenue />} />
             <Route path="/Checkins" element={<Checkins />} />
             <Route path="/GuestsBookings" element={<GuestsBookings />} />
 
