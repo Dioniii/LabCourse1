@@ -36,7 +36,7 @@ export default function Home() {
                 Recent Bookings
               </h2>
               <Link
-                to="/Bookings/Bookings"
+                to="/bookings"
                 className="text-sm text-blue-500 hover:text-blue-700 transition"
               >
                 See more →
