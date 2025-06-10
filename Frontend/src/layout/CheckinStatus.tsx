@@ -20,21 +20,41 @@ const CheckinStatus = () => {
     },
   ];
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [modalIdx, setModalIdx] = useState<number | null>(null);
+  const [idNumber, setIdNumber] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
 
-  const filteredCheckins = checkins.filter(
-    (item) =>
-      item.guestName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.roomNumber.toString().includes(searchTerm)
-  );
+  const filteredCheckins = checkins;
 
   // Handler for check-in/out button (frontend only)
   const handleAction = (idx: number, status: string) => {
     if (status === "Pending Check-in") {
-      alert(`Checked in guest at row ${idx + 1}`);
+      setModalIdx(idx);
+      setShowModal(true);
     } else if (status === "Checked-in") {
       alert(`Checked out guest at row ${idx + 1}`);
     }
+  };
+
+  const handleModalConfirm = () => {
+    setShowModal(false);
+    alert(
+      `Check-in confirmed for: ${filteredCheckins[modalIdx!].guestName}\nID/Passport: ${idNumber}\nPhone: ${phone}\nEmail: ${email}`
+    );
+    setIdNumber("");
+    setPhone("");
+    setEmail("");
+    setModalIdx(null);
+  };
+
+  const handleModalClose = () => {
+    setShowModal(false);
+    setIdNumber("");
+    setPhone("");
+    setEmail("");
+    setModalIdx(null);
   };
 
   return (
@@ -47,17 +67,6 @@ const CheckinStatus = () => {
         <p className="text-gray-600 dark:text-gray-400 mt-1">
           Lista e klientëve që hyjnë ose dalin sot
         </p>
-      </div>
-
-      {/* Search */}
-      <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Kërko me emër ose numër dhome..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-        />
       </div>
 
       {/* Table */}
@@ -159,6 +168,72 @@ const CheckinStatus = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Modal for Check-in */}
+      {showModal && modalIdx !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/30 backdrop-blur-sm">
+          <div className="relative bg-white rounded-xl shadow-lg p-8 max-w-sm w-full">
+            <button
+              onClick={handleModalClose}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-2xl font-bold focus:outline-none"
+              aria-label="Close"
+            >
+              &times;
+            </button>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">Guest Check-in Details</h3>
+            <form
+              onSubmit={e => { e.preventDefault(); handleModalConfirm(); }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium mb-1">ID/Passport Number</label>
+                <input
+                  type="text"
+                  value={idNumber}
+                  onChange={e => setIdNumber(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Phone Number</label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  required
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-800 dark:bg-gray-800 dark:text-white"
+                />
+              </div>
+              <div className="flex justify-end gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={handleModalClose}
+                  className="rounded-lg bg-gray-200 px-4 py-2 text-gray-700 font-medium hover:bg-gray-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-green-600 px-4 py-2 text-white font-medium hover:bg-green-700 transition-colors"
+                >
+                  Confirm Check-in
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
