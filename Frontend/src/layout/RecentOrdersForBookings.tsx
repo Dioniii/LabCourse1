@@ -3,7 +3,7 @@ import axios from "axios";
 
 interface Booking {
   id: number;
-  guest_name: string;
+  user_name: string;
   room_number: string;
   check_in_date: string;
   check_out_date: string;
@@ -243,7 +243,7 @@ const RecentOrdersForBookings = () => {
   // Filtered bookings
   const filteredBookings = bookings.filter(
     (booking) =>
-      booking.guest_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      booking.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       booking.room_number?.toString().includes(searchTerm)
   );
 
@@ -485,7 +485,7 @@ const RecentOrdersForBookings = () => {
                   currentBookings.map((booking, idx) => (
                     <tr key={booking.id}>
                       <td className="px-5 py-4 text-start font-medium">{booking.id}</td>
-                      <td className="px-5 py-4 text-start">{booking.guest_name}</td>
+                      <td className="px-5 py-4 text-start">{booking.user_name}</td>
                       <td className="px-5 py-4 text-start">Room {booking.room_number}</td>
                       <td className="px-5 py-4 text-start">{toDisplayDate(booking.check_in_date)}</td>
                       <td className="px-5 py-4 text-start">{toDisplayDate(booking.check_out_date)}</td>
