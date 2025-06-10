@@ -1,12 +1,18 @@
 import React, { useState } from 'react';
 
+function toDisplayDate(isoDate: string) {
+  if (!isoDate) return '';
+  const [y, m, d] = isoDate.split('-');
+  return `${d}/${m}/${y}`;
+}
+
 const RecentGuestsBookings = () => {
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [people, setPeople] = useState(1);
-  const [roomType, setRoomType] = useState('Single');
+  const [roomType, setRoomType] = useState('Standard');
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ checkIn: '', checkOut: '', people: 1, roomType: 'Single' });
+  const [formData, setFormData] = useState({ checkIn: '', checkOut: '', people: 1, roomType: 'Standard' });
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -17,7 +23,7 @@ const RecentGuestsBookings = () => {
   const handlePaymentChoice = (choice: string) => {
     setShowModal(false);
     alert(
-      `Check-in: ${formData.checkIn}\nCheck-out: ${formData.checkOut}\nAmount of People: ${formData.people}\nType of Room: ${formData.roomType}\nPayment: ${choice}`
+      `Check-in: ${toDisplayDate(formData.checkIn)}\nCheck-out: ${toDisplayDate(formData.checkOut)}\nAmount of People: ${formData.people}\nType of Room: ${formData.roomType}\nPayment: ${choice}`
     );
   };
 
@@ -66,8 +72,8 @@ const RecentGuestsBookings = () => {
               onChange={e => setRoomType(e.target.value)}
               className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-gray-700 focus:border-brand-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
             >
-              <option value="Single">Single</option>
-              <option value="Double">Double</option>
+              <option value="Standard">Standard</option>
+              <option value="Deluxe">Deluxe</option>
               <option value="Suite">Suite</option>
             </select>
           </div>
@@ -82,8 +88,15 @@ const RecentGuestsBookings = () => {
         </form>
       </div>
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-          <div className="bg-white rounded-xl shadow-lg p-8 max-w-sm w-full">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/30 backdrop-blur-sm">
+          <div className="relative bg-white rounded-xl shadow-lg p-8 max-w-sm w-full">
+            <button
+              onClick={() => setShowModal(false)}
+              className="absolute top-3 right-3 text-gray-400 hover:text-gray-700 text-2xl font-bold focus:outline-none"
+              aria-label="Close"
+            >
+              &times;
+            </button>
             <h3 className="text-lg font-semibold mb-4 text-gray-900">How would you like to pay?</h3>
             <p className="mb-6 text-gray-700">Would you like to pay right now or pay when checking in the hotel?</p>
             <div className="flex gap-4 justify-end">
