@@ -1,6 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
-import { jwtDecode } from "jwt-decode";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import Room from "./layout/RoomStatus";
@@ -27,36 +25,12 @@ import GuestsBookings from './layout/GuestsBookings';
 import TrajnimiManagement from "./layout/TrajnimiManagement";
 
 
-function AuthWrapper({ children }: { children: React.ReactNode }) {
-  const navigate = useNavigate();
-  const location = useLocation();
-  useEffect(() => {
-    const token = localStorage.getItem("jwtToken");
-    if (!token) {
-      if (location.pathname !== "/signin") navigate("/signin");
-      return;
-    }
-    try {
-      const { exp } = jwtDecode<{ exp: number }>(token);
-      if (!exp || Date.now() >= exp * 1000) {
-        localStorage.removeItem("jwtToken");
-        if (location.pathname !== "/signin") navigate("/signin");
-      }
-    } catch {
-      localStorage.removeItem("jwtToken");
-      if (location.pathname !== "/signin") navigate("/signin");
-    }
-  }, [navigate, location.pathname]);
-  return <>{children}</>;
-}
-
 export default function App() {
   return (
     <>
       <Router>
-        <AuthWrapper>
-          <ScrollToTop />
-          <Routes>
+        <ScrollToTop />
+        <Routes>
             {/* Dashboard Layout */}
             <Route element={<AppLayout />}>
               <Route index path="/" element={<Home />} />
@@ -98,8 +72,7 @@ export default function App() {
 
             {/* Fallback Route */}
             <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthWrapper>
+        </Routes>
       </Router>
     </>
   );

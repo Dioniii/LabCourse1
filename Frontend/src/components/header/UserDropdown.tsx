@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 interface User {
@@ -25,19 +25,16 @@ export default function UserDropdown() {
 
   function handleLogout() {
     localStorage.removeItem("jwtToken");
-    navigate("/signin");
+    navigate("/");
   }
 
   useEffect(() => {
     const fetchUserData = async () => {
       const token = localStorage.getItem("jwtToken");
-      if (!token) return;
 
       try {
         const res = await axios.get("http://localhost:8000/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         setUser(res.data.data);
       } catch (err) {

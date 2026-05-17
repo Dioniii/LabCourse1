@@ -34,19 +34,6 @@ interface RoomStatus {
   name: string;
 }
 
-const parseJwt = (token: string) => {
-  const base64Url = token.split('.')[1];
-  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-  const jsonPayload = decodeURIComponent(
-    atob(base64)
-      .split('') 
-      .map((c) => `%${('00' + c.charCodeAt(0).toString(16)).slice(-2)}`)
-      .join('')
-  );
-
-  return JSON.parse(jsonPayload);
-};
-
 export default function RoomTable() {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [categories, setCategories] = useState<RoomCategory[]>([]);
@@ -61,7 +48,7 @@ export default function RoomTable() {
     status_id: 0,
     maintenance_notes: "",
   });
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const userRole: string = "admin";
   
   // Modal states
   const { isOpen: isCreateModalOpen, openModal: openCreateModal, closeModal: closeCreateModal } = useModal();
@@ -79,17 +66,13 @@ export default function RoomTable() {
 
   const fetchRooms = async () => {
     const token = localStorage.getItem("jwtToken");
-    if (!token) return;
 
     try {
-      const decodedToken = parseJwt(token);
-      setUserRole(decodedToken.role);
-
       // Fetch all data in parallel
       const [roomsRes, categoriesRes, statusesRes] = await Promise.all([
-        axios.get("http://localhost:8000/rooms", { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get("http://localhost:8000/room-categories", { headers: { Authorization: `Bearer ${token}` } }),
-        axios.get("http://localhost:8000/room-statuses", { headers: { Authorization: `Bearer ${token}` } })
+        axios.get("http://localhost:8000/rooms", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        axios.get("http://localhost:8000/room-categories", { headers: token ? { Authorization: `Bearer ${token}` } : {} }),
+        axios.get("http://localhost:8000/room-statuses", { headers: token ? { Authorization: `Bearer ${token}` } : {} })
       ]);
 
       setRooms(roomsRes.data?.data || []);

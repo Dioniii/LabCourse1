@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const bodyparser = require('body-parser');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -15,24 +15,23 @@ app.listen(PORT, () => console.log(`SERVER IS RUNNING ON ${PORT}`));
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
-// JWT Middleware
-const authenticateJWT = (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
-  if (!token) {
-    return res.status(403).json({ success: false, message: 'Access denied' });
+async function getRequestUserId(pool, req) {
+  const requestedId = Number(req.body?.user_id || req.query?.user_id || req.user?.id);
+  if (Number.isInteger(requestedId) && requestedId > 0) {
+    return requestedId;
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ success: false, message: 'Invalid or expired token' });
-    }
-    req.user = user;
-    next();
-  });
-};
+  const result = await pool.request().query(`
+    SELECT TOP 1 id
+    FROM HotelManagement.dbo.users
+    ORDER BY id
+  `);
+
+  return result.recordset[0]?.id || null;
+}
 
 // GET ALL USERS (with role object)
-app.get("/users", authenticateJWT, async (req, res) => {
+app.get("/users", async (req, res) => {
   try {
     const pool = await poolPromise;
 
@@ -192,7 +191,7 @@ async function getRoleIdByName(pool, roleName) {
 }
 
 // UPDATE USER ROLE (admin only)
-app.put("/users/:id/role", authenticateJWT, async (req, res) => {
+app.put("/users/:id/role", async (req, res) => {
   const { id } = req.params;
   const { role } = req.body;
   const validRoles = Object.keys(roleTableMap);
@@ -203,11 +202,6 @@ app.put("/users/:id/role", authenticateJWT, async (req, res) => {
 
   try {
     const pool = await poolPromise;
-
-    const currentUserRole = await getUserRoleNameById(pool, req.user.id);
-    if (currentUserRole !== "admin") {
-      return res.status(403).json({ success: false, message: "Only admin can change roles" });
-    }
 
     const previousRole = await getUserRoleNameById(pool, id);
     const newRoleId = await getRoleIdByName(pool, role);
@@ -249,7 +243,7 @@ app.put("/users/:id/role", authenticateJWT, async (req, res) => {
 });
 
 // ADMIN CREATE USER
-app.post("/users", authenticateJWT, async (req, res) => {
+app.post("/users", async (req, res) => {
   const { first_name, last_name, email, phone, password, role } = req.body;
   const validRoles = Object.keys(roleTableMap);
 
@@ -263,11 +257,6 @@ app.post("/users", authenticateJWT, async (req, res) => {
 
   try {
     const pool = await poolPromise;
-
-    const currentUserRole = await getUserRoleNameById(pool, req.user.id);
-    if (currentUserRole !== "admin") {
-      return res.status(403).json({ success: false, message: "Only admin can create users" });
-    }
 
     const roleId = await getRoleIdByName(pool, role);
     if (!roleId) {
@@ -318,16 +307,11 @@ app.post("/users", authenticateJWT, async (req, res) => {
 });
 
 // DELETE USER
-app.delete("/users/:id", authenticateJWT, async (req, res) => {
+app.delete("/users/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
     const pool = await poolPromise;
-
-    const currentUserRole = await getUserRoleNameById(pool, req.user.id);
-    if (currentUserRole !== "admin") {
-      return res.status(403).json({ success: false, message: "Only admin can delete users" });
-    }
 
     await pool.request()
       .input("id", sql.Int, id)
@@ -341,12 +325,13 @@ app.delete("/users/:id", authenticateJWT, async (req, res) => {
 });
 
 
-app.get('/me', authenticateJWT, async (req, res) => {
+app.get('/me', async (req, res) => {
   try {
     const pool = await poolPromise;
+    const userId = await getRequestUserId(pool, req);
     
     const result = await pool.request()
-      .input("id", sql.Int, req.user.id)
+      .input("id", sql.Int, userId)
       .query(`
         SELECT 
           u.first_name, 
@@ -365,7 +350,7 @@ app.get('/me', authenticateJWT, async (req, res) => {
   }
 });
 
-app.put('/editProfile', authenticateJWT, async (req, res) => {
+app.put('/editProfile', async (req, res) => {
   try {
     const { first_name, last_name, email, phone } = req.body;
 
@@ -375,10 +360,11 @@ app.put('/editProfile', authenticateJWT, async (req, res) => {
     }
 
     const pool = await poolPromise;
+    const userId = await getRequestUserId(pool, req);
 
     // Përditëso të dhënat në databazë
     await pool.request()
-      .input("id", sql.Int, req.user.id)
+      .input("id", sql.Int, userId)
       .input("first_name", sql.VarChar, first_name)
       .input("last_name", sql.VarChar, last_name)
       .input("email", sql.VarChar, email)
@@ -394,7 +380,7 @@ app.put('/editProfile', authenticateJWT, async (req, res) => {
 
     // Merr të dhënat e rifreskuara për ta kthyer si përgjigje
     const updatedUser = await pool.request()
-      .input("id", sql.Int, req.user.id)
+      .input("id", sql.Int, userId)
       .query(`
         SELECT 
           u.first_name, 
@@ -419,7 +405,7 @@ app.put('/editProfile', authenticateJWT, async (req, res) => {
 });
 
 // Get all room categories
-app.get("/room-categories", authenticateJWT, async (req, res) => {
+app.get("/room-categories", async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -439,7 +425,7 @@ app.get("/room-categories", authenticateJWT, async (req, res) => {
 });
 
 // Get all room statuses
-app.get("/room-statuses", authenticateJWT, async (req, res) => {
+app.get("/room-statuses", async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -459,7 +445,7 @@ app.get("/room-statuses", authenticateJWT, async (req, res) => {
 });
 
 // Get all rooms
-app.get("/rooms", authenticateJWT, async (req, res) => {
+app.get("/rooms", async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -488,7 +474,7 @@ app.get("/rooms", authenticateJWT, async (req, res) => {
 });
 
 // Update room category and status
-app.put("/rooms/:id", authenticateJWT, async (req, res) => {
+app.put("/rooms/:id", async (req, res) => {
   const { id } = req.params;
   const { category_id, status_id, maintenance_notes, price } = req.body;
 
@@ -546,7 +532,7 @@ app.put("/rooms/:id", authenticateJWT, async (req, res) => {
 });
 
 // CREATE ROOM
-app.post("/rooms", authenticateJWT, async (req, res) => {
+app.post("/rooms", async (req, res) => {
   const { room_number, category_id, price, status_id, maintenance_notes } = req.body;
 
   if (!room_number || !category_id || !price) {
@@ -555,10 +541,6 @@ app.post("/rooms", authenticateJWT, async (req, res) => {
 
   try {
     const pool = await poolPromise;
-
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ success: false, message: "Only admin can create rooms" });
-    }
 
     await pool.request()
       .input("room_number", sql.VarChar, room_number)
@@ -584,15 +566,11 @@ app.post("/rooms", authenticateJWT, async (req, res) => {
 });
 
 // DELETE ROOM
-app.delete("/rooms/:id", authenticateJWT, async (req, res) => {
+app.delete("/rooms/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
     const pool = await poolPromise;
-
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ success: false, message: "Only admin can delete rooms" });
-    }
 
     const checkResult = await pool.request()
       .input("id", sql.Int, id)
@@ -614,7 +592,7 @@ app.delete("/rooms/:id", authenticateJWT, async (req, res) => {
 });
 
 // ADMIN UPDATE USER
-app.put("/users/:id", authenticateJWT, async (req, res) => {
+app.put("/users/:id", async (req, res) => {
   const userId = req.params.id;
   const { first_name, last_name, email, phone, role } = req.body;
   const validRoles = Object.keys(roleTableMap);
@@ -629,11 +607,6 @@ app.put("/users/:id", authenticateJWT, async (req, res) => {
 
   try {
     const pool = await poolPromise;
-
-    const currentUserRole = await getUserRoleNameById(pool, req.user.id);
-    if (currentUserRole !== "admin") {
-      return res.status(403).json({ success: false, message: "Only admin can update users" });
-    }
 
     const roleId = await getRoleIdByName(pool, role);
     if (!roleId) {
@@ -731,7 +704,7 @@ app.put("/users/:id", authenticateJWT, async (req, res) => {
 });
 
 // Cleaners
-app.get('/cleaners', authenticateJWT, async (req, res) => {
+app.get('/cleaners', async (req, res) => {
   try {
     const pool = await poolPromise;
 
@@ -761,7 +734,7 @@ app.get('/cleaners', authenticateJWT, async (req, res) => {
 });
 
 // GET ALL BOOKINGS
-app.get("/api/bookings", authenticateJWT, async (req, res) => {
+app.get("/api/bookings", async (req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -800,7 +773,7 @@ app.get("/api/bookings", authenticateJWT, async (req, res) => {
 });
 
 // POST CREATE BOOKING (with Stripe payment session)
-app.post("/api/bookings", authenticateJWT, async (req, res) => {
+app.post("/api/bookings", async (req, res) => {
   try {
     const { room_id, check_in_date, check_out_date, number_of_guests, price, special_requests } = req.body;
 
@@ -812,6 +785,7 @@ app.post("/api/bookings", authenticateJWT, async (req, res) => {
     }
 
     const pool = await poolPromise;
+    const userId = await getRequestUserId(pool, req);
     
     // Get room price if not provided
     let roomPrice = price;
@@ -840,7 +814,7 @@ app.post("/api/bookings", authenticateJWT, async (req, res) => {
 
     // Create booking
     const insertResult = await pool.request()
-      .input("user_id", sql.Int, req.user.id)
+      .input("user_id", sql.Int, userId)
       .input("room_id", sql.Int, room_id)
       .input("check_in_date", sql.Date, check_in_date)
       .input("check_out_date", sql.Date, check_out_date)
@@ -922,7 +896,7 @@ app.post("/api/bookings", authenticateJWT, async (req, res) => {
 /////////////////////////////////////////////////////////////
 
 // Get all fabrika
-app.get('/api/fabrikas', authenticateJWT, async (_req, res) => {
+app.get('/api/fabrikas', async (_req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -937,7 +911,7 @@ app.get('/api/fabrikas', authenticateJWT, async (_req, res) => {
 });
 
 // Create fabrika
-app.post('/api/fabrikas', authenticateJWT, async (req, res) => {
+app.post('/api/fabrikas', async (req, res) => {
   try {
     const { FabrikaID, Emri, Lokacioni, Shteti } = req.body;
     if (FabrikaID == null || !Emri || !Lokacioni || !Shteti) {
@@ -963,7 +937,7 @@ app.post('/api/fabrikas', authenticateJWT, async (req, res) => {
 });
 
 // Update fabrika
-app.put('/api/fabrikas/:id', authenticateJWT, async (req, res) => {
+app.put('/api/fabrikas/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { Emri, Lokacioni, Shteti } = req.body;
@@ -985,7 +959,7 @@ app.put('/api/fabrikas/:id', authenticateJWT, async (req, res) => {
 });
 
 // Delete fabrika
-app.delete('/api/fabrikas/:id', authenticateJWT, async (req, res) => {
+app.delete('/api/fabrikas/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await poolPromise;
@@ -1002,7 +976,7 @@ app.delete('/api/fabrikas/:id', authenticateJWT, async (req, res) => {
 });
 
 // Get roboti
-app.get('/api/robotis', authenticateJWT, async (_req, res) => {
+app.get('/api/robotis', async (_req, res) => {
   try {
     const pool = await poolPromise;
     const result = await pool.request().query(`
@@ -1018,7 +992,7 @@ app.get('/api/robotis', authenticateJWT, async (_req, res) => {
 });
 
 // Create roboti
-app.post('/api/robotis', authenticateJWT, async (req, res) => {
+app.post('/api/robotis', async (req, res) => {
   try {
     const { RobotiID, Emri, Modeli, VitiProdhimit, FabrikaID } = req.body;
     if (RobotiID == null || !Emri || !Modeli || !VitiProdhimit) {
@@ -1045,7 +1019,7 @@ app.post('/api/robotis', authenticateJWT, async (req, res) => {
 });
 
 // Update roboti
-app.put('/api/robotis/:id', authenticateJWT, async (req, res) => {
+app.put('/api/robotis/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { Emri, Modeli,VitiProdhimit, FabrikaID } = req.body;
@@ -1068,7 +1042,7 @@ app.put('/api/robotis/:id', authenticateJWT, async (req, res) => {
 });
 
 // Delete roboti
-app.delete('/api/robotis/:id', authenticateJWT, async (req, res) => {
+app.delete('/api/robotis/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const pool = await poolPromise;

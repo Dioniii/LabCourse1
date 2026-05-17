@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { jwtDecode } from "jwt-decode";
 import axios from "axios";
 import {
   Table,
@@ -37,22 +36,13 @@ interface RawUser {
   email?: string;
 }
 
-interface DecodedToken {
-  id: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: string | Role;
-  exp: number;
-}
-
 export default function BasicTableOne() {
   const [users, setUsers] = useState<User[]>([]);
   const [editingUserId, setEditingUserId] = useState<number | null>(null);
   const [newRole, setNewRole] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [currentUserRole, setCurrentUserRole] = useState<"admin" | "guest" | "cleaner" | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [currentUserRole] = useState<"admin" | "guest" | "cleaner" | null>("admin");
+  const [currentUserId] = useState<number | null>(null);
   const { isOpen, openModal, closeModal } = useModal();
   const { isOpen: isEditModalOpen, openModal: openEditModal, closeModal: closeEditModal } = useModal();
   const { isOpen: isDeleteModalOpen, openModal: openDeleteModal, closeModal: closeDeleteModal } = useModal();
@@ -93,43 +83,12 @@ export default function BasicTableOne() {
       });
   };
 
-  const getCurrentUserRole = (): "admin" | "guest" | "cleaner" | null => {
-    const token = localStorage.getItem("jwtToken");
-    if (!token) return null;
-
-    try {
-      const decoded = jwtDecode<DecodedToken>(token);
-      if (typeof decoded.role === "string") {
-        return decoded.role as "admin" | "guest" | "cleaner";
-      } else {
-        return decoded.role.name;
-      }
-    } catch {
-      return null;
-    }
-  };
-
-  const getCurrentUserId = (): number | null => {
-    const token = localStorage.getItem("jwtToken");
-    if (!token) return null;
-
-    try {
-      const decoded = jwtDecode<DecodedToken>(token);
-      return decoded.id;
-    } catch {
-      return null;
-    }
-  };
-
   const fetchUsers = () => {
     const token = localStorage.getItem("jwtToken");
-  
-    if (!token) {
-      console.error("No JWT token found. Please log in.");
-    } else {
-      axios.get("http://localhost:8000/users", {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+
+    axios.get("http://localhost:8000/users", {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
       .then(res => {
         if (res.data.success) {
           const formattedUsers: User[] = (res.data.data as RawUser[]).map((user) => ({
@@ -146,12 +105,9 @@ export default function BasicTableOne() {
         }
       })
       .catch(err => console.error("Error fetching users:", err));
-    }
   };
 
   useEffect(() => {
-    setCurrentUserRole(getCurrentUserRole());
-    setCurrentUserId(getCurrentUserId());
     fetchUsers();
 
     const interval = setInterval(() => {

@@ -71,7 +71,7 @@ const RobotiManagement: React.FC = () => {
   const [robotis, setRobotis] = useState<Roboti[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filterFabrikaRobotiID, setFilterFabrikaRobotiID] = useState<number | 'all'>('all');
+  const [filterFabrikaRobotiID] = useState<number | 'all'>('all');
 
   // Forms
   const [fabrikasForm, setFabrikaForm] = useState<Fabrika>({ FabrikaID: 0, Emri: '', Lokacioni: '', Shteti: ''});

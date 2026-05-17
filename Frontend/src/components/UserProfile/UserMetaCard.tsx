@@ -1,19 +1,7 @@
-import { useModal } from "../../hooks/useModal";
-// import { Modal } from "../ui/modal";
-import Button from "../ui/button/Button";
-import Input from "../form/input/InputField";
-import Label from "../form/Label";
 import axios from "axios";
 import { useEffect, useState } from "react";
 
 export default function UserMetaCard() {
-  const { isOpen, openModal, closeModal } = useModal();
-  const handleSave = () => {
-    // Handle save logic here
-    console.log("Saving changes...");
-    closeModal();
-  };
-
   const [user, setUser] = useState<User | null>(null);
 
   interface User {
@@ -27,13 +15,10 @@ export default function UserMetaCard() {
   useEffect(() => {
     const fetchUserData = async () => {
       const token = localStorage.getItem("jwtToken");
-      if (!token) return;
 
       try {
         const res = await axios.get("http://localhost:8000/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         setUser(res.data.data);
       } catch (err) {

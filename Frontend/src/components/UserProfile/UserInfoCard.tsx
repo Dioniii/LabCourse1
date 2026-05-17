@@ -22,13 +22,10 @@ export default function UserInfoCard() {
   useEffect(() => {
     const fetchUserData = async () => {
       const token = localStorage.getItem("jwtToken");
-      if (!token) return;
 
       try {
         const res = await axios.get("http://localhost:8000/me", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
         setUser(res.data.data);
       } catch (err) {
@@ -41,7 +38,7 @@ export default function UserInfoCard() {
 
   const handleSave = async () => {
     const token = localStorage.getItem("jwtToken");
-    if (!token || !user) return;
+    if (!user) return;
 
     try {
       await axios.put(
@@ -53,9 +50,7 @@ export default function UserInfoCard() {
           phone: user.phone,
         },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         }
       );
 

@@ -77,10 +77,6 @@ const BookingDashboard: React.FC = () => {
     console.log('Edit booking:', id);
   };
 
-  const handleExport = () => {
-    console.log('Export bookings');
-  };
-
   const handleNewBooking = () => {
     setIsFormOpen(true);
   };

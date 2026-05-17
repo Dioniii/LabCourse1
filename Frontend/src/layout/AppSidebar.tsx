@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import {
   CalenderIcon,
@@ -73,9 +73,6 @@ const navItems: NavItem[] = [
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
-  const navigate = useNavigate();
-
-  const [userRole, setUserRole] = useState<string | null>(null);
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main";
@@ -88,31 +85,6 @@ const AppSidebar: React.FC = () => {
     (path: string) => location.pathname === path,
     [location.pathname]
   );
-
-  useEffect(() => {
-    const token = localStorage.getItem("jwtToken");
-    if (token) {
-      const base64Url = token.split('.')[1];
-      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(
-        atob(base64)
-          .split('')
-          .map((c) => `%${('00' + c.charCodeAt(0).toString(16)).slice(-2)}`)
-          .join('')
-      );
-      const decodedToken = JSON.parse(jsonPayload);
-      setUserRole(decodedToken.role);
-
-      // Redirect based on user role
-      if (location.pathname === '/') {
-        if (decodedToken.role === 'guest') {
-          navigate('/GuestsBookings');
-        } else if (decodedToken.role === 'cleaner') {
-          navigate('/room-status');
-        }
-      }
-    }
-  }, [location.pathname, navigate]);
 
   useEffect(() => {
     let submenuMatched = false;
@@ -260,20 +232,7 @@ const AppSidebar: React.FC = () => {
     </ul>
   );
   
-  const filteredNavItems = navItems.filter((item) => {
-    const hiddenForGuest = ["Room Status", "Check-ins/outs", "Dashboard", "Staff Management", "Manage Bookings"];
-    const hiddenForCleaner = ["Bookings", "Check-ins/outs", "Calendar", "Dashboard", "Staff Management", "Manage Bookings"];
-    
-    if (userRole === "guest") {
-      return !hiddenForGuest.includes(item.name);
-    }
-
-    if (userRole === "cleaner") {
-      return !hiddenForCleaner.includes(item.name);
-    }
-
-    return true;
-  });
+  const filteredNavItems = navItems;
 
   return (
     <aside
