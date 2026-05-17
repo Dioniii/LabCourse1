@@ -49,14 +49,25 @@ const RoomAvailabilityCalendar: React.FC<RoomAvailabilityCalendarProps> = ({
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const token = localStorage.getItem('jwtToken');
+        const headers = {
+          'Authorization': `Bearer ${token}`
+        };
+        
         const [roomsResponse, bookingsResponse] = await Promise.all([
-          fetch('/api/rooms'),
-          fetch('/api/bookings'),
+          fetch('http://localhost:8000/rooms', { headers }),
+          fetch('http://localhost:8000/api/bookings', { headers }),
         ]);
-        const roomsData = await roomsResponse.json();
-        const bookingsData = await bookingsResponse.json();
-        setRooms(roomsData);
-        setBookings(bookingsData);
+        
+        if (!roomsResponse.ok || !bookingsResponse.ok) {
+          throw new Error('Failed to fetch data');
+        }
+        
+        const roomsResult = await roomsResponse.json();
+        const bookingsResult = await bookingsResponse.json();
+        
+        setRooms(roomsResult.data || []);
+        setBookings(bookingsResult.data || []);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {

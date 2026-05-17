@@ -24,6 +24,8 @@ import Home from "./pages/Dashboard/Home";
 import BookingManagement from "./pages/Bookings";
 import Checkins from './layout/Checkins';
 import GuestsBookings from './layout/GuestsBookings';
+import TrajnimiManagement from "./layout/TrajnimiManagement";
+
 
 function AuthWrapper({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
@@ -62,6 +64,9 @@ export default function App() {
               <Route path="/bookings" element={<BookingManagement />} />
               <Route path="/Checkins" element={<Checkins />} />
               <Route path="/GuestsBookings" element={<GuestsBookings />} />
+              <Route path="/TrajnimiMangement" element={<TrajnimiManagement />} />
+
+
 
               {/* Others Page */}
               <Route path="/profile" element={<UserProfiles />} />

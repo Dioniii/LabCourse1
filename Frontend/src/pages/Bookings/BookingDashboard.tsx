@@ -38,9 +38,30 @@ const BookingDashboard: React.FC = () => {
   const fetchBookings = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/bookings');
-      const data = await response.json();
-      setBookings(data);
+      const token = localStorage.getItem('jwtToken');
+      const response = await fetch('http://localhost:8000/api/bookings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch bookings');
+      }
+      
+      const result = await response.json();
+      // Transform the data to match the Booking interface
+      const transformedBookings = (result.data || []).map((booking: any) => ({
+        id: booking.id,
+        guestName: booking.user_name || 'Unknown Guest',
+        roomNumber: booking.room_number || '',
+        checkIn: new Date(booking.check_in_date),
+        checkOut: new Date(booking.check_out_date),
+        status: booking.status_name || 'Pending',
+        totalAmount: parseFloat(booking.total_amount) || 0
+      }));
+      
+      setBookings(transformedBookings);
     } catch (error) {
       console.error('Error fetching bookings:', error);
     } finally {
@@ -70,9 +91,13 @@ const BookingDashboard: React.FC = () => {
 
   const handleFormSave = async (bookingData: any) => {
     try {
-      const response = await fetch('/api/bookings', {
+      const token = localStorage.getItem('jwtToken');
+      const response = await fetch('http://localhost:8000/api/bookings', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify(bookingData),
       });
       if (!response.ok) throw new Error('Failed to create booking');
